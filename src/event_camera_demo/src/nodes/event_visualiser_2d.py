@@ -6,14 +6,20 @@ import ros_numpy as rnp
 import threading
 from datetime import datetime
 import threading
+from cv_bridge import CvBridge
 
+
+bridge = CvBridge()
 topic_out = None
 
 def events_to_image(data):
+    # get events from packet (convert ROS image to numpy matrix)
+    events = bridge.imgmsg_to_cv2(data.events, desired_encoding='passthrough').astype(np.uint64)
+
     # get event data
-    x = data.x
-    y = data.y
-    p = np.array(data.polarity)
+    x = events[:, 1]
+    y = events[:, 2]
+    p = np.array(events[:, 3])
 
     # setup display image
     im_out = np.zeros((data.height, data.width, 3), dtype=np.uint8)
@@ -27,13 +33,18 @@ def events_to_image(data):
 
 
 def start_node(blocking=True):
+    # output topic for 2d visualisation
     global topic_out
     topic_out = rospy.Publisher('/event_camera_demo/events_demo/event_visual_2d', Image, queue_size=1)
+    # node
     rospy.init_node('event_to_visualiser_2d', anonymous=False)
+    # input topic for packets of events
     rospy.Subscriber("/davis346/data/event_packets", EventPacket, events_to_image)
+
+    # allows this node to be started from an external script more easily
     if blocking:
         rospy.spin()
 
     
 if __name__ == '__main__':
-    start_node()
+    start_node(True)
