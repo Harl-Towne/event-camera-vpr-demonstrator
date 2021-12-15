@@ -16,9 +16,9 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
-     <widget class="QWidget" name="mainDisplay" native="true">
-      <property name="styleSheet">
-       <string notr="true">background-color:skyblue</string>
+     <widget class="QLabel" name="imageDisplay">
+      <property name="text">
+       <string/>
       </property>
      </widget>
     </item>

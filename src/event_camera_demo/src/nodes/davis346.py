@@ -1,13 +1,7 @@
 from dv import NetworkNumpyEventPacketInput
-from datetime import datetime
 import numpy as np
-import ros_numpy as rnp
-from std_msgs.msg import Int32
-from sensor_msgs.msg import Image
 import rospy
-from pprint import pprint
 from event_camera_demo.msg import EventPacket
-from datetime import datetime
 from cv_bridge import CvBridge
 import traceback
 
@@ -22,12 +16,12 @@ def start_node(blocking=True):
 
     # allows this node to be started from an external script more easily
     if blocking:
-        publish_data()
+        publish_data(events_topic)
     else:
         pass
         #TODO: start node in non-blocking way (maybe is best just to do this from the main ui?)
 
-def publish_data():
+def publish_data(events_topic):
     while not rospy.is_shutdown():  # loop until shutdown
         try:
             with NetworkNumpyEventPacketInput(address='127.0.0.1', port=7777) as event_packets: # connect to dv software over tcp

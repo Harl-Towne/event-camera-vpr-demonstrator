@@ -3,9 +3,6 @@ from event_camera_demo.msg import EventPacket
 from sensor_msgs.msg import Image
 import numpy as np
 import ros_numpy as rnp
-import threading
-from datetime import datetime
-import threading
 from cv_bridge import CvBridge
 
 
@@ -26,6 +23,7 @@ def events_to_image(data):
 
     # set events to blue/red for positive/negative events
     im_out[y, x, p * 2] = 255
+    # im_out[y, x, :] = 255
     
     # send message
     msg = rnp.msgify(Image, im_out, encoding='rgb8')

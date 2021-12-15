@@ -164,6 +164,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   src/nodes/event_visualiser_2d.py
   src/nodes/davis346.py
+  src/nodes/data_grabber.py
   src/main.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

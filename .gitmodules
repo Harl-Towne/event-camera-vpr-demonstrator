@@ -1,6 +1,9 @@
 [submodule "src/catkin_simple"]
 	path = src/catkin_simple
-	url = https://github.com/catkin/catkin_simple
+	url = https://github.com/catkin/catkin_simple.git
 [submodule "src/vision_opencv"]
 	path = src/vision_opencv
 	url = https://github.com/ros-perception/vision_opencv
+[submodule "src/rpg_dvs_ros"]
+	path = src/rpg_dvs_ros
+	url = https://github.com/uzh-rpg/rpg_dvs_ros.git
