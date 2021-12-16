@@ -4,14 +4,16 @@ from sensor_msgs.msg import Image
 import numpy as np
 import ros_numpy as rnp
 from cv_bridge import CvBridge
-
+from pprint import pprint
+import sys
+# this node subscribes to the davis346 node and creates an event visual from the event data
 
 bridge = CvBridge()
 topic_out = None
 
 def events_to_image(data):
     # get events from packet (convert ROS image to numpy matrix)
-    events = bridge.imgmsg_to_cv2(data.events, desired_encoding='passthrough').astype(np.uint64)
+    events = bridge.imgmsg_to_cv2(data.events, desired_encoding='64FC1').astype(np.uint64)
 
     # get event data
     x = events[:, 1]

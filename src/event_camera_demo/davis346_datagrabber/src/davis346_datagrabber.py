@@ -5,6 +5,8 @@ from event_camera_demo.msg import EventPacket
 from cv_bridge import CvBridge
 import traceback
 
+# This node was made for use with dv-gui/dv-runtime software
+
 bridge = CvBridge()
 
 def start_node(blocking=True):
@@ -42,7 +44,7 @@ def publish_data(events_topic):
                     msg.height = 260
                     msg.width = 346
                     data = np.array([ts, x, y, p], dtype=np.float64).transpose()
-                    msg.events = bridge.cv2_to_imgmsg(data, encoding="passthrough") 
+                    msg.events = bridge.cv2_to_imgmsg(data, encoding="64FC1") 
 
                     # send message
                     events_topic.publish(msg)

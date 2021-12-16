@@ -1,4 +1,3 @@
-from nodes import event_visualiser_2d, data_grabber, davis346
 from PyQt5 import QtWidgets, uic
 import sys
 import os
