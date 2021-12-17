@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
 
   ros::Subscriber event_sub = n.subscribe("dvs/events", 1, eventsCallback);
-  pub = n.advertise<demo_msgs::EventPacket>("/davis346/data/event_packets", 10);
+  pub = n.advertise<demo_msgs::EventPacket>("/event_camera_demo/event_packets", 10);
 
   ros::spin();
 

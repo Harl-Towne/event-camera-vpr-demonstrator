@@ -11,7 +11,7 @@ bridge = CvBridge()
 
 def start_node(blocking=True):
     # output topic for events
-    events_topic = rospy.Publisher('/davis346/data/event_packets', EventPacket, queue_size=1)
+    events_topic = rospy.Publisher('/event_camera_demo/event_packets', EventPacket, queue_size=1)
     rospy.init_node('davis346', anonymous=False)
 
     rospy.loginfo("Node 'davis346' Started")

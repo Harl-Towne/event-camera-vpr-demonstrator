@@ -35,11 +35,11 @@ def events_to_image(data):
 def start_node(blocking=True):
     # output topic for 2d visualisation
     global topic_out
-    topic_out = rospy.Publisher('/event_camera_demo/events_demo/event_visual_2d', Image, queue_size=1)
+    topic_out = rospy.Publisher('/event_camera_demo/event_visual_2d', Image, queue_size=1)
     # node
     rospy.init_node('event_to_visualiser_2d', anonymous=False)
     # input topic for packets of events
-    rospy.Subscriber("/davis346/data/event_packets", EventPacket, events_to_image)
+    rospy.Subscriber("/event_camera_demo/event_packets", EventPacket, events_to_image)
 
     # allows this node to be started from an external script more easily
     if blocking:
