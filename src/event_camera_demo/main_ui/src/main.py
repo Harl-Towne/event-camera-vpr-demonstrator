@@ -215,9 +215,10 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         p = event_data['polarity']
 
         # setup display image
-        frame = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
+        frame = np.ones((self.image_height, self.image_width, 3), dtype=np.uint8)*200
 
         # use stuff to make image
+        frame[y, x, :] = 0
         frame[y, x, p * 2] = 255
         # don't ask about the , self.image_width*3 i don't know what it does but it's important
         image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np image to qt image
