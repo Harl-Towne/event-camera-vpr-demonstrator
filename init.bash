@@ -1,2 +1,2 @@
 catkin build -s
-source ~/event_demo/devel/setup.bash
+source ~/event-camera-vpr-demonstrator/devel/setup.bash

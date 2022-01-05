@@ -1,6 +1,6 @@
 import rospy
 from event_camera_demo.msg import EventPacket
-from sensor_msgs.msg import Image
+from demo_msgs.msg import EventPacket
 import numpy as np
 import ros_numpy as rnp
 from cv_bridge import CvBridge

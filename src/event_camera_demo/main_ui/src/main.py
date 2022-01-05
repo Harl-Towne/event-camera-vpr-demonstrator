@@ -6,7 +6,7 @@ from numpy.core.records import record
 from cv_bridge import CvBridge
 import rospy
 from pprint import pprint
-from event_camera_demo.msg import EventPacket
+from demo_msgs.msg import EventPacket
 import numpy as np
 from enum import Enum
 
@@ -22,6 +22,7 @@ states = Enum("states", ("live", "record", "playback", "pause"))
 class EventDemoWindow(QtWidgets.QMainWindow):
 
     fps = 30 # frames to display each second
+    min_frame_size = 0.40 # minimum frame width (measurd in equalivalent min playback speed. basicaly when the playback speed is lowwer than this number the frames stop getting smaller and start overlapping so that there are still enought events each frame to be able to see something)
 
     # datatpe used to store events
     event_dtype = np.dtype([("timestamp", np.float64), ('x', np.uint16), ('y', np.uint16), ('polarity', np.uint8)])
@@ -36,7 +37,6 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.last_frame_end=None # used to keep track of where the recodring is up to
         self.image_width = None  # width and height of camera display
         self.image_height = None
-        self.live_data = np.empty(0, dtype=self.event_dtype)     # variable to keep track of events coming in before they are displayed
         self.recorded_data = np.empty(0, dtype=self.event_dtype)
 
         # load ui
@@ -51,7 +51,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
         # display refresh timer
         self.updateTimer = QtCore.QTimer()
-        self.updateTimer.timeout.connect(self.generate_new_frame)
+        self.updateTimer.timeout.connect(self.display_new_playback_frame)
         self.updateTimer.start(1000//self.fps)
 
         # setup node
@@ -135,16 +135,13 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         for i, column in enumerate(['timestamp', 'x', 'y', 'polarity']):
             events[column] = event_packet[:, i]
 
-        # don't save new data if it isn't going to be displayed
-        if self.state == states.live or self.state == states.record:
-            self.live_data = np.append(self.live_data, events)
-
         # if the data is currently being recorded also save it into the recorded_data array
         if self.state == states.record:
             if len(self.recorded_data) == 0:
                 self.recorded_data = events
-            else:
+            else:            
                 self.recorded_data = np.append(self.recorded_data, events)
+
 
         # this if statement triggers once for the first event packet and signals to rest of the class to start generating frames
         # also saves image width and height (which should never change)
@@ -153,25 +150,28 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.image_width = data.width
             self.image_height = data.height
 
+            
+        if self.state == states.live or  self.state == states.record:
+            self.display_new_frame(events)
+
     # calcualtes the new time range for the next frame to be displayed on screen
     # self.state == states.pause will cause this function to return the same time range (assuming playback_speed doesn't change)
     def new_frame_window(self, playback_speed):
-        frame_width = 1/(self.fps/playback_speed)
-        # both live and record states display live data
-        if self.state == states.live or self.state == states.record:
-            # move end of frame to the most recent event (easiest way to prevent playback from falling behind)
-            self.last_frame_end = self.live_data[-1]['timestamp']
-        elif self.state == states.playback:
+        frame_step = 1/(self.fps/playback_speed)
+        frame_width = max(frame_step, 1/(self.fps/self.min_frame_size))
+        # only advance frame if the data is being played back (not paused)
+        if self.state == states.playback:
             # move end for frame by one frame (adjusting for playback speed)
-            self.last_frame_end += frame_width
+            self.last_frame_end += frame_step
             # if the end of the frame is over the end of the data
-            if self.last_frame_end > self.recorded_data[-1]['timestamp']:
+            if self.last_frame_end > self.recorded_data[-1]['timestamp'] or self.last_frame_end < self.recorded_data[0]['timestamp'] + frame_width:
                 # set the end of the frame back the the start of the data (adjusting for frame width)
                 self.last_frame_end = self.recorded_data[0]['timestamp'] + frame_width
 
         return self.last_frame_end - frame_width, self.last_frame_end
 
-    def generate_new_frame(self):
+    # cut one frame worth of event data out of the recorded event data and then display it
+    def display_new_playback_frame(self):
         # abort function if no data has been received yet
         if self.last_frame_end == None:
             return
@@ -187,8 +187,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             data = self.recorded_data
             playback_speed = self.playspeedBox.value()
         else:
-            # if live data get the live data
-            data = self.live_data
+            # don't display new data if live data is being displayed
+            return
 
         # abort if no data
         # this happens with the live playback sometimes
@@ -204,14 +204,15 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
         # get just the data from this frame
         data = data[index_start:index_end+1]
-        # and also erase any data too old for a live frame
-        if not state == states.playback:
-            self.live_data = data[index_start:index_end+1]
 
+        self.display_new_frame(data)
+
+    # display the given event data as a frame
+    def display_new_frame(self, event_data):
         # get stuff
-        x = data['x']
-        y = data['y']
-        p = data['polarity']
+        x = event_data['x']
+        y = event_data['y']
+        p = event_data['polarity']
 
         # setup display image
         frame = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
