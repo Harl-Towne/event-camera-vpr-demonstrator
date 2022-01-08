@@ -126,6 +126,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 self.integrationBar.setEnabled(True)
                 self.integrationBox.setEnabled(True)
             self.integrationCheck.setEnabled(True)
+            self.last_frame_end = self.recorded_data[0]['timestamp']
 
         elif new_state == states.pause:
             self.recordBtn.setEnabled(True)
@@ -173,6 +174,23 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.integrationBar.setEnabled(True)
             self.user_integration_interval = self.integrationBox.value()
 
+    def update_time(self):
+        cmin = 0
+        csec = 0
+        tmin = 0
+        tsec = 0
+        if len(self.recorded_data) > 0:
+            tsec = (int)(self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp'])
+            tmin = tsec // 60
+            tsec = tsec % 60
+            if self.last_frame_end is not None:
+                csec = (int)(self.last_frame_end - self.recorded_data[0]['timestamp'])
+                if csec < 0:
+                    csec = 0
+                cmin = csec // 60
+                csec = csec % 60
+        self.playtimeLbl.setText("{:02.0f}:{:02.0f}/{:02.0f}:{:02.0f}".format(cmin, csec, tmin, tsec))
+
     # callback function for ROS subscription
     # extracts events and saves them based on state
     def new_event_packet(self, data):
@@ -198,7 +216,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         # this if statement triggers once for the first event packet and signals to rest of the class to start generating frames
         # also saves image width and height (which should never change)
         if self.last_frame_end == None:
-            self.last_frame_end = events[-1]['timestamp']
+        #     self.last_frame_end = events[-1]['timestamp']
             self.image_width = data.width
             self.image_height = data.height
 
@@ -229,6 +247,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
     # cut one frame worth of event data out of the recorded event data and then display it
     def display_new_playback_frame(self):
+        self.update_time()
         # abort function if no data has been received yet
         if self.last_frame_end == None:
             return
@@ -282,7 +301,6 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         pixmap = QtGui.QPixmap(image) # convert qt image to qt pixmap
         pixmap = pixmap.scaled(self.imageDisplay.width(),self.imageDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale pixmap
         self.imageDisplay.setPixmap(pixmap) # display pixmap
-
 
 
 if __name__ == '__main__':
