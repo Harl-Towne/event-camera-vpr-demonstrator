@@ -43,9 +43,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         uic.loadUi(os.path.join(os.path.dirname(os.path.realpath(__file__)), "video_demo.ui"), self)
 
         # setup ui events
+        self.playbackBtn.clicked.connect(self.playbackBtn_clicked)
         self.recordBtn.clicked.connect(self.recordBtn_clicked)
-        self.playBtn.clicked.connect(self.playBtn_clicked)
-        self.stopBtn.clicked.connect(self.stopBtn_clicked)
         self.playspeedBar.valueChanged.connect(self.speedUpdate_bar)
         self.playspeedBox.valueChanged.connect(self.speedUpdate_box)
 
@@ -58,23 +57,21 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         rospy.init_node('event_demo_ui', anonymous=True)
         rospy.Subscriber("event_camera_demo/event_packets", EventPacket, self.new_event_packet)
 
-    # fucntion handles the record button being pushed
-    def recordBtn_clicked(self):
-        if self.state == states.live:
-            self.move_to_state(states.record)
-        else: # only other possible state should be states.record
-            self.move_to_state(states.playback)
-
     # fucntion handles the play button being pushed
-    def playBtn_clicked(self):
+    def playbackBtn_clicked(self):
         if self.state == states.playback:
             self.move_to_state(states.pause)
         else: # only other possible state should be states.pause
             self.move_to_state(states.playback)
 
-    # fucntion handles the stop button being pushed
-    def stopBtn_clicked(self):
-        self.move_to_state(states.live)
+    # fucntion handles the record button being pushed
+    def recordBtn_clicked(self):
+        if self.state == states.live:
+            self.move_to_state(states.record)
+        elif self.state == states.record:
+            self.move_to_state(states.playback)
+        else: # both playback and pause states move to live state
+            self.move_to_state(states.live)
 
     # function handles the tranistion between states
     # some buttons are only active in certain states
@@ -86,27 +83,34 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         if new_state == states.live:
             self.recordBtn.setEnabled(True)
             self.recordBtn.setText("Record")
-            self.playBtn.setText("Play")
-            self.stopBtn.setEnabled(False)
+            self.playbackBtn.setText("Play")
+            self.horizontalSlider.setEnabled(False)
+            self.playtimeLbl.setEnabled(False)
 
         elif new_state == states.record:
             self.recorded_data = np.empty(0, dtype=self.event_dtype) # erase old recording to make way for new one
             self.recordBtn.setEnabled(True)
-            self.recordBtn.setText("Stop Recording")
-            self.playBtn.setEnabled(False)
-            self.stopBtn.setEnabled(False)
+            self.recordBtn.setText("Stop")
+            self.playbackBtn.setEnabled(False)
+            self.playtimeLbl.setEnabled(True)
+            self.playtimeLbl.setText("00:00/00:00")
+            self.horizontalSlider.setEnabled(False)
 
         elif new_state == states.playback:
-            self.recordBtn.setEnabled(False)
-            self.playBtn.setEnabled(True)
-            self.playBtn.setText("Pause")
-            self.stopBtn.setEnabled(True)
+            self.recordBtn.setEnabled(True)
+            self.recordBtn.setText("Back")
+            self.playbackBtn.setEnabled(True)
+            self.playbackBtn.setText("Pause")
+            self.playtimeLbl.setEnabled(True)
+            self.horizontalSlider.setEnabled(True)
 
         elif new_state == states.pause:
-            self.recordBtn.setEnabled(False)
-            self.playBtn.setEnabled(True)
-            self.playBtn.setText("Resume")
-            self.stopBtn.setEnabled(True)
+            self.recordBtn.setEnabled(True)
+            self.recordBtn.setText("Back")
+            self.playbackBtn.setEnabled(True)
+            self.playbackBtn.setText("Resume")
+            self.playtimeLbl.setEnabled(True)
+            self.horizontalSlider.setEnabled(True)
 
         else: # this should never happen but just in case
             self.move_to_state(states.live)
