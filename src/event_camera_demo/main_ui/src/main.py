@@ -38,6 +38,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.image_width = None  # width and height of camera display
         self.image_height = None
         self.recorded_data = np.empty(0, dtype=self.event_dtype)
+        self.user_integration_interval = None
 
         # load ui
         uic.loadUi(os.path.join(os.path.dirname(os.path.realpath(__file__)), "video_demo.ui"), self)
@@ -47,6 +48,9 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.recordBtn.clicked.connect(self.recordBtn_clicked)
         self.playspeedBar.valueChanged.connect(self.speedUpdate_bar)
         self.playspeedBox.valueChanged.connect(self.speedUpdate_box)
+        self.integrationBar.valueChanged.connect(self.integrationUpdate_bar)
+        self.integrationBox.valueChanged.connect(self.integrationUpdate_box)
+        self.integrationCheck.stateChanged.connect(self.integrationUpdate_check)
 
         # display refresh timer
         self.updateTimer = QtCore.QTimer()
@@ -86,6 +90,12 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.playbackBtn.setText("Play")
             self.horizontalSlider.setEnabled(False)
             self.playtimeLbl.setEnabled(False)
+            self.statusLbl.setText("Live Data")
+            self.playspeedBar.setEnabled(False)
+            self.playspeedBox.setEnabled(False)
+            self.integrationBar.setEnabled(False)
+            self.integrationBox.setEnabled(False)
+            self.integrationCheck.setEnabled(False)
 
         elif new_state == states.record:
             self.recorded_data = np.empty(0, dtype=self.event_dtype) # erase old recording to make way for new one
@@ -95,6 +105,12 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.playtimeLbl.setEnabled(True)
             self.playtimeLbl.setText("00:00/00:00")
             self.horizontalSlider.setEnabled(False)
+            self.statusLbl.setText("Live Data")
+            self.playspeedBar.setEnabled(False)
+            self.playspeedBox.setEnabled(False)
+            self.integrationBar.setEnabled(False)
+            self.integrationBox.setEnabled(False)
+            self.integrationCheck.setEnabled(False)
 
         elif new_state == states.playback:
             self.recordBtn.setEnabled(True)
@@ -103,6 +119,13 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.playbackBtn.setText("Pause")
             self.playtimeLbl.setEnabled(True)
             self.horizontalSlider.setEnabled(True)
+            self.statusLbl.setText("Recorded Data")
+            self.playspeedBar.setEnabled(True)
+            self.playspeedBox.setEnabled(True)
+            if self.user_integration_interval is not None:
+                self.integrationBar.setEnabled(True)
+                self.integrationBox.setEnabled(True)
+            self.integrationCheck.setEnabled(True)
 
         elif new_state == states.pause:
             self.recordBtn.setEnabled(True)
@@ -111,6 +134,13 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.playbackBtn.setText("Resume")
             self.playtimeLbl.setEnabled(True)
             self.horizontalSlider.setEnabled(True)
+            self.statusLbl.setText("Recorded Data")
+            self.playspeedBar.setEnabled(True)
+            self.playspeedBox.setEnabled(True)
+            if self.user_integration_interval is not None:
+                self.integrationBar.setEnabled(True)
+                self.integrationBox.setEnabled(True)
+            self.integrationCheck.setEnabled(True)
 
         else: # this should never happen but just in case
             self.move_to_state(states.live)
@@ -118,12 +148,30 @@ class EventDemoWindow(QtWidgets.QMainWindow):
     # function for syncronising play speed bar and play speed box
     # updates box based on bar
     def speedUpdate_bar(self, value):
-        self.playspeedBox.setValue(value/100)
+        self.playspeedBox.setValue(value/100)            
 
     # function for syncronising play speed bar and play speed box
     # updates bar based on box
     def speedUpdate_box(self, value):
         self.playspeedBar.setValue((int)(value*100))
+
+    def integrationUpdate_bar(self, value):
+        self.integrationBox.setValue(value/1000)
+
+    def integrationUpdate_box(self, value):
+        self.integrationBar.setValue((int)(value*1000))
+        if self.user_integration_interval is not None:
+            self.user_integration_interval = value
+
+    def integrationUpdate_check(self, value):
+        if value == 2: # 2 is checked
+            self.integrationBox.setEnabled(False)
+            self.integrationBar.setEnabled(False)
+            self.user_integration_interval = None
+        else:
+            self.integrationBox.setEnabled(True)
+            self.integrationBar.setEnabled(True)
+            self.user_integration_interval = self.integrationBox.value()
 
     # callback function for ROS subscription
     # extracts events and saves them based on state
@@ -163,6 +211,11 @@ class EventDemoWindow(QtWidgets.QMainWindow):
     def new_frame_window(self, playback_speed):
         frame_step = 1/(self.fps/playback_speed)
         frame_width = max(frame_step, 1/(self.fps/self.min_frame_size))
+        if self.user_integration_interval is None:
+            self.integrationBox.setValue(frame_width)
+        else:
+            frame_width = self.user_integration_interval
+
         # only advance frame if the data is being played back (not paused)
         if self.state == states.playback:
             # move end for frame by one frame (adjusting for playback speed)
