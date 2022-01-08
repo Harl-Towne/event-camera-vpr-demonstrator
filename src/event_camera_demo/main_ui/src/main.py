@@ -16,7 +16,7 @@ bridge = CvBridge()
 # record - showing live events from camera but also saving them for later
 # playback - showing previously recorded events
 # pause - showing previously recorded events but not moving in time
-states = Enum("states", ("live", "record", "playback", "pause"))
+states = Enum("states", ("live", "record", "playback", "pause", 'back'))
 
 # main class handles pretty well everything
 class EventDemoWindow(QtWidgets.QMainWindow):
@@ -32,6 +32,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
         # initial state is live display
         self.state = states.live
+        self.last_state = states.live
 
         # some class variables that shouldn't be modified (because the class will do that itself)
         self.last_frame_end=None # used to keep track of where the recodring is up to
@@ -51,6 +52,9 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.integrationBar.valueChanged.connect(self.integrationUpdate_bar)
         self.integrationBox.valueChanged.connect(self.integrationUpdate_box)
         self.integrationCheck.stateChanged.connect(self.integrationUpdate_check)
+        self.playtimeBar.sliderPressed.connect(self.playtimeBar_pressed)
+        self.playtimeBar.sliderReleased.connect(self.playtimeBar_released)
+        self.playtimeBar.sliderMoved.connect(self.playtimeBar_dragged)
 
         # display refresh timer
         self.updateTimer = QtCore.QTimer()
@@ -61,6 +65,16 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         rospy.init_node('event_demo_ui', anonymous=True)
         rospy.Subscriber("event_camera_demo/event_packets", EventPacket, self.new_event_packet)
 
+    def playtimeBar_pressed(self):
+        self.move_to_state(states.pause)
+
+    def playtimeBar_released(self):
+        self.move_to_state(states.back)
+
+    def playtimeBar_dragged(self, value):
+        tsec = self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp']
+        csec = tsec * value/1000
+        self.last_frame_end = csec + self.recorded_data[0]['timestamp']
     # fucntion handles the play button being pushed
     def playbackBtn_clicked(self):
         if self.state == states.playback:
@@ -81,14 +95,12 @@ class EventDemoWindow(QtWidgets.QMainWindow):
     # some buttons are only active in certain states
     # some buttons have different function is different states (their text changes)
     def move_to_state(self, new_state):
-        # save new state
-        self.state = new_state
-
+        current_state = self.state
         if new_state == states.live:
             self.recordBtn.setEnabled(True)
             self.recordBtn.setText("Record")
             self.playbackBtn.setText("Play")
-            self.horizontalSlider.setEnabled(False)
+            self.playtimeBar.setEnabled(False)
             self.playtimeLbl.setEnabled(False)
             self.statusLbl.setText("Live Data")
             self.playspeedBar.setEnabled(False)
@@ -104,7 +116,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.playbackBtn.setEnabled(False)
             self.playtimeLbl.setEnabled(True)
             self.playtimeLbl.setText("00:00/00:00")
-            self.horizontalSlider.setEnabled(False)
+            self.playtimeBar.setEnabled(False)
             self.statusLbl.setText("Live Data")
             self.playspeedBar.setEnabled(False)
             self.playspeedBox.setEnabled(False)
@@ -118,7 +130,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.playbackBtn.setEnabled(True)
             self.playbackBtn.setText("Pause")
             self.playtimeLbl.setEnabled(True)
-            self.horizontalSlider.setEnabled(True)
+            self.playtimeBar.setEnabled(True)
             self.statusLbl.setText("Recorded Data")
             self.playspeedBar.setEnabled(True)
             self.playspeedBox.setEnabled(True)
@@ -126,7 +138,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 self.integrationBar.setEnabled(True)
                 self.integrationBox.setEnabled(True)
             self.integrationCheck.setEnabled(True)
-            self.last_frame_end = self.recorded_data[0]['timestamp']
+            if not current_state == states.pause:
+                self.last_frame_end = self.recorded_data[0]['timestamp']
 
         elif new_state == states.pause:
             self.recordBtn.setEnabled(True)
@@ -134,7 +147,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.playbackBtn.setEnabled(True)
             self.playbackBtn.setText("Resume")
             self.playtimeLbl.setEnabled(True)
-            self.horizontalSlider.setEnabled(True)
+            self.playtimeBar.setEnabled(True)
             self.statusLbl.setText("Recorded Data")
             self.playspeedBar.setEnabled(True)
             self.playspeedBox.setEnabled(True)
@@ -143,8 +156,17 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 self.integrationBox.setEnabled(True)
             self.integrationCheck.setEnabled(True)
 
+        elif new_state == states.back:
+            self.move_to_state(self.last_state)
+            return
+
         else: # this should never happen but just in case
             self.move_to_state(states.live)
+            return        
+        
+        # save new state
+        self.last_state = current_state
+        self.state = new_state
 
     # function for syncronising play speed bar and play speed box
     # updates box based on bar
@@ -180,15 +202,24 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         tmin = 0
         tsec = 0
         if len(self.recorded_data) > 0:
-            tsec = (int)(self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp'])
-            tmin = tsec // 60
-            tsec = tsec % 60
+            tsec = self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp']
             if self.last_frame_end is not None:
-                csec = (int)(self.last_frame_end - self.recorded_data[0]['timestamp'])
+                csec = self.last_frame_end - self.recorded_data[0]['timestamp']
                 if csec < 0:
                     csec = 0
-                cmin = csec // 60
-                csec = csec % 60
+        if self.state == states.playback:
+            if tsec == 0:
+                self.playtimeBar.setValue(0)
+            else:
+                self.playtimeBar.setValue((int)(csec/tsec*1000))
+        if not tsec == 0:
+            self.playtimeBar.setTickInterval((int)(1000/tsec))
+        tsec = (int)(tsec)
+        csec = (int)(csec)
+        tmin = tsec // 60
+        tsec = tsec % 60
+        cmin = csec // 60
+        csec = csec % 60
         self.playtimeLbl.setText("{:02.0f}:{:02.0f}/{:02.0f}:{:02.0f}".format(cmin, csec, tmin, tsec))
 
     # callback function for ROS subscription
