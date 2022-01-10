@@ -1,7 +1,12 @@
-TODO:
-intigration window sliderbar
-playback location sliderbar - more information in general
+todo:
+##intigration window sliderbar
+##playback location sliderbar - more information in general (current time, total time)
+
+think about using tonic for noise filters and stuff - sperate frame generator class probably
+
+look into firenet for HDR demo
 events over time plot (with ROI)
 3d voxel plot
-think about using tonic for noise filters and stuff - sperate frame generator class probably
-look into firenet for HDR demo
+
+token:
+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

@@ -63,7 +63,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
         # setup node
         rospy.init_node('event_demo_ui', anonymous=True)
-        rospy.Subscriber("event_camera_demo/event_packets", EventPacket, self.new_event_packet)
+        rospy.Subscriber("event_camera_demo/event_display", EventPacket, self.new_event_packet)
 
     def playtimeBar_pressed(self):
         self.move_to_state(states.pause)
