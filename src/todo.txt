@@ -1,3 +1,12 @@
+toask:
+should the integral slider work on live data
+
+
+bugs:
+Tonic filters are very slow
+extra long recordings (>10s) slow live playback causing dropped eventpackets
+
+
 todo:
 ##intigration window sliderbar
 ##playback location sliderbar - more information in general (current time, total time)

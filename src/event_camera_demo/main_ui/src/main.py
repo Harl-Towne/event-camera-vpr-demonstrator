@@ -9,6 +9,7 @@ from pprint import pprint
 from demo_msgs.msg import EventPacket
 import numpy as np
 from enum import Enum
+from datetime import datetime
 
 bridge = CvBridge()
 
@@ -40,6 +41,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.image_height = None
         self.recorded_data = np.empty(0, dtype=self.event_dtype)
         self.user_integration_interval = None
+        self.last_playback_indices = [0, 20000]
 
         # load ui
         uic.loadUi(os.path.join(os.path.dirname(os.path.realpath(__file__)), "video_demo.ui"), self)
@@ -54,7 +56,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.integrationCheck.stateChanged.connect(self.integrationUpdate_check)
         self.playtimeBar.sliderPressed.connect(self.playtimeBar_pressed)
         self.playtimeBar.sliderReleased.connect(self.playtimeBar_released)
-        self.playtimeBar.sliderMoved.connect(self.playtimeBar_dragged)
+        self.playtimeBar.valueChanged.connect(self.playtimeBar_dragged)
 
         # display refresh timer
         self.updateTimer = QtCore.QTimer()
@@ -72,9 +74,10 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.move_to_state(states.back)
 
     def playtimeBar_dragged(self, value):
-        tsec = self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp']
-        csec = tsec * value/1000
-        self.last_frame_end = csec + self.recorded_data[0]['timestamp']
+        if self.state == states.pause:
+            tsec = self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp']
+            csec = tsec * value/1000
+            self.last_frame_end = csec + self.recorded_data[0]['timestamp']
     # fucntion handles the play button being pushed
     def playbackBtn_clicked(self):
         if self.state == states.playback:
@@ -273,6 +276,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             if self.last_frame_end > self.recorded_data[-1]['timestamp'] or self.last_frame_end < self.recorded_data[0]['timestamp'] + frame_width:
                 # set the end of the frame back the the start of the data (adjusting for frame width)
                 self.last_frame_end = self.recorded_data[0]['timestamp'] + frame_width
+                self.last_playback_indices = [0, 20000]
 
         return self.last_frame_end - frame_width, self.last_frame_end
 
@@ -303,11 +307,30 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         if len(data) == 0:
             return
 
-        # get timestamps and convert frame range in time to frame range in index
-        timestamps = data['timestamp']
+        # get timestamps
         time_start, time_end = self.new_frame_window(playback_speed)
+
+        # get limits for data (allowing the code to search through all of the data takes too long)
+        i = max(self.last_playback_indices[0] - 100000, 0)
+        j = self.last_playback_indices[1] + self.last_playback_indices[1] - self.last_playback_indices[0] + 100000
+
+        # convert frame range in time to frame range in index
+        timestamps = data['timestamp'][i:j]
         index_start = np.searchsorted(timestamps, time_start)
         index_end = np.searchsorted(timestamps, time_end, side='right')
+
+        # correct indexes
+        index_start = index_start + i
+        index_end = index_end + i      
+
+        # if the search withing the limited data didn't work the search the entire range for the correct range
+        if (index_start == i and not i == 0) or (index_end == j and not j >= len(data)):
+            timestamps = data['timestamp']
+            index_start = np.searchsorted(timestamps, time_start)
+            index_end = np.searchsorted(timestamps, time_end, side='right')
+
+        self.last_playback_indices = [index_start, index_end]
+        
 
         # get just the data from this frame
         data = data[index_start:index_end+1]
