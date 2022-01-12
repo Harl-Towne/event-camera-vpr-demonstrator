@@ -16,6 +16,3 @@ think about using tonic for noise filters and stuff - sperate frame generator cl
 look into firenet for HDR demo
 events over time plot (with ROI)
 3d voxel plot
-
-token:
-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

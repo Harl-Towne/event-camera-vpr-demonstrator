@@ -67,17 +67,22 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         rospy.init_node('event_demo_ui', anonymous=True)
         rospy.Subscriber("event_camera_demo/event_display", EventPacket, self.new_event_packet)
 
+    # when the bar is press pause the recording
+    # this is needs because if the recording was playing at the same time it would fight the user
     def playtimeBar_pressed(self):
         self.move_to_state(states.pause)
-
+    
+    # when the bar is released go back to the previous state (playback or pause)
     def playtimeBar_released(self):
         self.move_to_state(states.back)
 
+    # update the current playback time as the user moves the bar
     def playtimeBar_dragged(self, value):
         if self.state == states.pause:
             tsec = self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp']
             csec = tsec * value/1000
             self.last_frame_end = csec + self.recorded_data[0]['timestamp']
+ 
     # fucntion handles the play button being pushed
     def playbackBtn_clicked(self):
         if self.state == states.playback:
@@ -141,7 +146,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 self.integrationBar.setEnabled(True)
                 self.integrationBox.setEnabled(True)
             self.integrationCheck.setEnabled(True)
-            if not current_state == states.pause:
+            if self.last_frame_end is None:
                 self.last_frame_end = self.recorded_data[0]['timestamp']
 
         elif new_state == states.pause:
@@ -181,14 +186,19 @@ class EventDemoWindow(QtWidgets.QMainWindow):
     def speedUpdate_box(self, value):
         self.playspeedBar.setValue((int)(value*100))
 
+    # function for syncronising integration bar and integration box
+    # updates box based on bar
     def integrationUpdate_bar(self, value):
         self.integrationBox.setValue(value/1000)
-
+    
+    # function for syncronising integration bar and integration box
+    # updates bar based on box
     def integrationUpdate_box(self, value):
         self.integrationBar.setValue((int)(value*1000))
         if self.user_integration_interval is not None:
             self.user_integration_interval = value
 
+    # trigger user/auto integration range when the box is ticked
     def integrationUpdate_check(self, value):
         if value == 2: # 2 is checked
             self.integrationBox.setEnabled(False)
@@ -199,24 +209,33 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.integrationBar.setEnabled(True)
             self.user_integration_interval = self.integrationBox.value()
 
+    # update the current/total playback time text as well as the playtime bar
     def update_time(self):
         cmin = 0
         csec = 0
         tmin = 0
         tsec = 0
-        if len(self.recorded_data) > 0:
+
+        # get total and current playback time in seconds
+        if len(self.recorded_data) > 0: # if there is recorded data
             tsec = self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp']
-            if self.last_frame_end is not None:
+            if self.last_frame_end is not None: # if the playback hasn't started yet
                 csec = self.last_frame_end - self.recorded_data[0]['timestamp']
                 if csec < 0:
                     csec = 0
-        if self.state == states.playback:
-            if tsec == 0:
+
+        # update playtime bar position if recording is being played back
+        if self.state == states.playback: 
+            if tsec == 0: # avoid / by 0 errors
                 self.playtimeBar.setValue(0)
             else:
                 self.playtimeBar.setValue((int)(csec/tsec*1000))
+
+        # update ticks at the bottom of the playtime bar
         if not tsec == 0:
             self.playtimeBar.setTickInterval((int)(1000/tsec))
+
+        # calculate minutes:seconds format and display
         tsec = (int)(tsec)
         csec = (int)(csec)
         tmin = tsec // 60
@@ -329,6 +348,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             index_start = np.searchsorted(timestamps, time_start)
             index_end = np.searchsorted(timestamps, time_end, side='right')
 
+        # update for use in next data limits
         self.last_playback_indices = [index_start, index_end]
         
 
