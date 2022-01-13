@@ -2,14 +2,12 @@ from PyQt5 import QtWidgets, uic, QtCore, QtGui
 import sys
 import os
 
-from numpy.core.records import record
 from cv_bridge import CvBridge
 import rospy
-from pprint import pprint
 from demo_msgs.msg import EventPacket
 import numpy as np
 from enum import Enum
-from datetime import datetime
+from pprint import pprint
 
 bridge = CvBridge()
 
@@ -39,7 +37,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.last_frame_end=None # used to keep track of where the recodring is up to
         self.image_width = None  # width and height of camera display
         self.image_height = None
-        self.recorded_data = np.empty(0, dtype=self.event_dtype)
+        self.recorded_data = EventStore()
         self.user_integration_interval = None
         self.last_playback_indices = [0, 20000]
 
@@ -79,9 +77,9 @@ class EventDemoWindow(QtWidgets.QMainWindow):
     # update the current playback time as the user moves the bar
     def playtimeBar_dragged(self, value):
         if self.state == states.pause:
-            tsec = self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp']
+            tsec = self.recorded_data.loc(-1)['timestamp'] - self.recorded_data.loc(0)['timestamp']
             csec = tsec * value/1000
-            self.last_frame_end = csec + self.recorded_data[0]['timestamp']
+            self.last_frame_end = csec + self.recorded_data.loc(0)['timestamp']
  
     # fucntion handles the play button being pushed
     def playbackBtn_clicked(self):
@@ -118,7 +116,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.integrationCheck.setEnabled(False)
 
         elif new_state == states.record:
-            self.recorded_data = np.empty(0, dtype=self.event_dtype) # erase old recording to make way for new one
+            self.recorded_data.wipe()# = np.empty(0, dtype=self.event_dtype) # erase old recording to make way for new one
             self.recordBtn.setEnabled(True)
             self.recordBtn.setText("Stop")
             self.playbackBtn.setEnabled(False)
@@ -147,7 +145,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 self.integrationBox.setEnabled(True)
             self.integrationCheck.setEnabled(True)
             if self.last_frame_end is None:
-                self.last_frame_end = self.recorded_data[0]['timestamp']
+                self.last_frame_end = self.recorded_data.loc(0)['timestamp']
 
         elif new_state == states.pause:
             self.recordBtn.setEnabled(True)
@@ -217,10 +215,10 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         tsec = 0
 
         # get total and current playback time in seconds
-        if len(self.recorded_data) > 0: # if there is recorded data
-            tsec = self.recorded_data[-1]['timestamp'] - self.recorded_data[0]['timestamp']
+        if self.recorded_data.length() > 0: # if there is recorded data
+            tsec = self.recorded_data.loc(-1)['timestamp'] - self.recorded_data.loc(0)['timestamp']
             if self.last_frame_end is not None: # if the playback hasn't started yet
-                csec = self.last_frame_end - self.recorded_data[0]['timestamp']
+                csec = self.last_frame_end - self.recorded_data.loc(0)['timestamp']
                 if csec < 0:
                     csec = 0
 
@@ -260,11 +258,11 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
         # if the data is currently being recorded also save it into the recorded_data array
         if self.state == states.record:
-            if len(self.recorded_data) == 0:
-                self.recorded_data = events
-            else:            
-                self.recorded_data = np.append(self.recorded_data, events)
-
+            # if len(self.recorded_data) == 0:
+            #     self.recorded_data = events
+            # else:            
+            #     self.recorded_data = np.append(self.recorded_data, events)
+            self.recorded_data.append(events)
 
         # this if statement triggers once for the first event packet and signals to rest of the class to start generating frames
         # also saves image width and height (which should never change)
@@ -292,9 +290,9 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             # move end for frame by one frame (adjusting for playback speed)
             self.last_frame_end += frame_step
             # if the end of the frame is over the end of the data
-            if self.last_frame_end > self.recorded_data[-1]['timestamp'] or self.last_frame_end < self.recorded_data[0]['timestamp'] + frame_width:
+            if self.last_frame_end > self.recorded_data.loc(-1)['timestamp'] or self.last_frame_end < self.recorded_data.loc(0)['timestamp'] + frame_width:
                 # set the end of the frame back the the start of the data (adjusting for frame width)
-                self.last_frame_end = self.recorded_data[0]['timestamp'] + frame_width
+                self.last_frame_end = self.recorded_data.loc(0)['timestamp'] + frame_width
                 self.last_playback_indices = [0, 20000]
 
         return self.last_frame_end - frame_width, self.last_frame_end
@@ -314,7 +312,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         
         if state == states.playback or state == states.pause:
             # if recorded data is being shown get the recorded data and playback speed
-            data = self.recorded_data
+            # data = self.recorded_data.loc(0, -1)
             playback_speed = self.playspeedBox.value()
         else:
             # don't display new data if live data is being displayed
@@ -323,7 +321,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         # abort if no data
         # this happens with the live playback sometimes
         # not sure why
-        if len(data) == 0:
+        if self.recorded_data.length == 0:
             return
 
         # get timestamps
@@ -333,23 +331,29 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         i = max(self.last_playback_indices[0] - 100000, 0)
         j = self.last_playback_indices[1] + self.last_playback_indices[1] - self.last_playback_indices[0] + 100000
 
+        data = self.recorded_data.loc(i, j)
+
         # convert frame range in time to frame range in index
-        timestamps = data['timestamp'][i:j]
+        timestamps = data['timestamp']#[i:j]
         index_start = np.searchsorted(timestamps, time_start)
         index_end = np.searchsorted(timestamps, time_end, side='right')
 
         # correct indexes
-        index_start = index_start + i
-        index_end = index_end + i      
+        # index_start = index_start + i
+        # index_end = index_end + i     
+
+        # update for use in next data limits
+        self.last_playback_indices = [index_start + i, index_end + i] 
 
         # if the search withing the limited data didn't work the search the entire range for the correct range
         if (index_start == i and not i == 0) or (index_end == j and not j >= len(data)):
+            data = self.recorded_data.loc(0, -1)
             timestamps = data['timestamp']
             index_start = np.searchsorted(timestamps, time_start)
             index_end = np.searchsorted(timestamps, time_end, side='right')
+            # update for use in next data limits
+            self.last_playback_indices = [index_start, index_end] 
 
-        # update for use in next data limits
-        self.last_playback_indices = [index_start, index_end]
         
 
         # get just the data from this frame
@@ -375,6 +379,111 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         pixmap = QtGui.QPixmap(image) # convert qt image to qt pixmap
         pixmap = pixmap.scaled(self.imageDisplay.width(),self.imageDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale pixmap
         self.imageDisplay.setPixmap(pixmap) # display pixmap
+
+# I cannot for the life of me manage to import this from another file so it's in here instead
+class EventStore():
+
+    def __init__(self):
+        self.event_packets = []
+
+
+    def append(self, packet):
+        self.event_packets.append(packet)
+
+
+    def prepend(self, packet):
+        self.event_packets.prepend(packet)
+
+
+    def length(self):
+        s = 0
+        for packet in self.event_packets:
+            s = s + len(packet)
+        return s
+
+
+    def loc(self, *args): #two indexes is range
+        length = self.length()
+        if length == 0: # no data
+            raise Exception("No data")
+
+        if len(args) == 0: # wrong parameters
+            raise Exception("Give index")
+
+        # string index (select column)
+        if len(args) == 1 and type(args[0]) == str:
+            k = args[0] # k for kolumn
+            ret = np.empty(length, dtype=self.event_packets[0][k].dtype)
+            i = 0
+            for packet in self.event_packets:
+                j = i + len(packet)
+                ret[i:j] = packet[k]
+                i = j
+            return ret
+        # not string index (correct numbers)
+        else:
+            if len(args) > 0:
+                a = args[0]
+                if a < 0:
+                    a = length + a
+                elif a > length:
+                    a = length - 1 # this -1 stops the last element ever being accessed but it prevents a bug that I don't want to fix
+            if len(args) > 1:
+                b = args[1]
+                if b <= 0:
+                    b = length + b
+                elif b > length:
+                    b = length - 1 # this -1 stops the last element ever being accessed but it prevents a bug that I don't want to fix
+
+        # one index 
+        if len(args) == 1:
+            i, j = self.iloc(a)
+            return self.event_packets[i][j]
+
+        # two indices
+        elif len(args) > 1:
+            i1, j1 = self.iloc(a)
+            i2, j2 = self.iloc(b)
+            ret = self.event_packets[i1][j1:]
+            for packet in self.event_packets[i1+1:i2]:
+                ret = np.append(ret, packet)
+            np.append(ret, self.event_packets[i2][:j2])
+            return ret
+        
+        raise IndexError("Invalid indices")
+
+
+    def iloc(self, j):
+        a = j
+        i = 0
+        while j >= len(self.event_packets[i]):
+            j = j - len(self.event_packets[i])
+            i = i + 1
+            if i >= len(self.event_packets):
+                print(j)
+                raise IndexError("Index out of range")
+        return i, j
+
+
+    def search(self, column, value, side="left"):
+        index = 0
+        i = 0
+        j = np.searchsorted(self.event_packets[0][column], value, side=side)
+        while j >= len(self.event_packets[i]) or i == len(self.event_packets) - 1:
+            index = index + len(self.event_packets[i])
+            left_j = j
+            left_i = i
+            i = i + 1
+            j = np.searchsorted(self.event_packets[i][column], value, side=side)
+
+        if j == 0 and side == "left":
+            i = left_i
+            j = left_j
+
+        return index + j
+
+    def wipe(self):
+        self.event_packets = []
 
 
 if __name__ == '__main__':

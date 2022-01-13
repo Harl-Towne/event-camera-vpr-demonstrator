@@ -104,8 +104,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES main_ui
-#  CATKIN_DEPENDS cv_bridge rospy sensor_msgs
+#  LIBRARIES eventstore
+#  CATKIN_DEPENDS cv_bridge rospy demo_msgs
 #  DEPENDS system_lib
 )
 
@@ -160,6 +160,7 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
+  # src/eventstore.py
   src/main.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
