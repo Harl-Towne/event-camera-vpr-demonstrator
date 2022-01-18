@@ -2,14 +2,18 @@ toask:
 
 bugs:
 Tonic filters are very slow
+integration appears different betwen live and recorded 
+window won't allow images to be shrunk
+lots of crashes/freezes
 
 todo:
 ##intigration window sliderbar
 ##playback location sliderbar - more information in general (current time, total time)
 
 think about using tonic for noise filters and stuff - sperate frame generator class probably
-make integration period work on live data
-show regualar image - events drawn on image
+## make integration period work on live data
+## show regualar image - events drawn on image
+## record regular image for playback
 
 look into firenet for HDR demo
 events over time plot (with ROI)
