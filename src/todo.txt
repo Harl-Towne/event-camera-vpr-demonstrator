@@ -4,7 +4,6 @@ bugs:
 Tonic filters are very slow
 integration appears different betwen live and recorded 
 window won't allow images to be shrunk
-lots of crashes/freezes
 
 todo:
 ##intigration window sliderbar
@@ -14,7 +13,15 @@ think about using tonic for noise filters and stuff - sperate frame generator cl
 ## make integration period work on live data
 ## show regualar image - events drawn on image
 ## record regular image for playback
+display for % of real time
+3d voxel plot - https://github.com/cedric-scheerlinck/jupnote_event_demo/blob/master/main.ipynb
+add "fast event draw" option
 
 look into firenet for HDR demo
 events over time plot (with ROI)
-3d voxel plot
+
+
+priority:
+bug fixes
+voxel plot
+firenet

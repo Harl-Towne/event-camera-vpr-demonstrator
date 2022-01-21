@@ -9,6 +9,7 @@ import numpy as np
 from enum import Enum
 from pprint import pprint
 from sensor_msgs.msg import Image
+from datetime import datetime
 
 bridge = CvBridge()
 
@@ -373,7 +374,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         # get just the data from this frame
         data = data[index_start:index_end+1]
 
-        self.display_new_frame(data)
+        # self.display_new_frame(data)
         try:
             # sometimes this errors out, no clue why
             self.live_event_data.clean(timestamps[index_start])
@@ -383,6 +384,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
     # cut one frame worth of event data out of the recorded event data and then display it
     def display_new_playback_frame(self):
+        s = datetime.now()
+
         self.update_time()
         # abort function if no data has been received yet
         if self.last_frame_end == None:
@@ -401,6 +404,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         else:
             # don't display new data if live data is being displayed
             return
+        print('='*40)
 
         # abort if no data
         # this happens with the live playback sometimes
@@ -415,12 +419,21 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         i = max(self.last_playback_indices[0] - 100000, 0)
         j = self.last_playback_indices[1] + self.last_playback_indices[1] - self.last_playback_indices[0] + 100000
 
+        print(datetime.now() - s, '\t pre shit')
+        s = datetime.now()
+
         data = self.recorded_event_data.loc(i, j)
+
+        print(datetime.now() - s, 'got data')
+        s = datetime.now()
 
         # convert frame range in time to frame range in index
         timestamps = data['timestamp']#[i:j]
         index_start = np.searchsorted(timestamps, time_start)
         index_end = np.searchsorted(timestamps, time_end, side='right')
+
+        print(datetime.now() - s, '\t first search')
+        s = datetime.now()
 
         # correct indexes
         # index_start = index_start + i
@@ -432,25 +445,45 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         # if the search withing the limited data didn't work the search the entire range for the correct range
         if (index_start == 0 and not i == 0) or (index_end == j-i+1 and not j >= len(data)):
             data = self.recorded_event_data.loc(0, -1)
+    
+            print(datetime.now() - s, '\t second get')
+            s = datetime.now()
             timestamps = data['timestamp']
             index_start = np.searchsorted(timestamps, time_start)
             index_end = np.searchsorted(timestamps, time_end, side='right')
             # update for use in next data limits
             self.last_playback_indices = [index_start, index_end] 
+    
+            print(datetime.now() - s, '\t second search')
+            s = datetime.now()
+        else:
+            print('nah\n')
+            s = datetime.now()
 
         
 
         # get just the data from this frame
         data = data[index_start:index_end+1]
 
+        print(datetime.now() - s, '\t data trim')
+        s = datetime.now()
+
         self.display_new_frame(data)
+
+        print(datetime.now() - s, '\t display')
+        s = datetime.now()
 
     # display the given event data as a frame
     def display_new_frame(self, event_data):
+        s = datetime.now()
         # get stuff
         x = event_data['x']
         y = event_data['y']
         p = event_data['polarity']
+        
+
+        print('\t', datetime.now() - s, '\t data get')
+        s = datetime.now()
         
         camera_frame = None
         if self.state == states.live or self.state == states.record:
@@ -462,6 +495,9 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 i = len(self.recorded_camera_data['frames']) - 1
             camera_frame = self.recorded_camera_data['frames'][i]
 
+        print('\t', datetime.now() - s, '\t camera data get')
+        s = datetime.now()
+
 
         
         if self.overlayCheck.checkState() == 2 and camera_frame is not None:
@@ -469,14 +505,23 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         else:
             frame = np.ones((self.image_height, self.image_width, 3), dtype=np.uint8)*200
 
+        print('\t', datetime.now() - s, '\t overlay get')
+        s = datetime.now()
+
         # use stuff to make event_image
-        frame[y, x, :] = 0
+        # frame[y, x, :] = 0
         frame[y, x, p * 2] = 255
+
+        print('\t', datetime.now() - s, '\t add events')
+        s = datetime.now()
 
         # don't ask about the , self.image_width*3 i don't know what it does but it's important
         event_image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
         event_pixmap = QtGui.QPixmap(event_image) # convert qt event_image to qt event_pixmap
         width = self.eventDisplay.width() + self.frameDisplay.width()
+
+        print('\t', datetime.now() - s, '\t event pixmap')
+        s = datetime.now()
 
         if self.cameraCheck.checkState() == 2:
             if camera_frame is not None:
@@ -486,10 +531,16 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 self.frameDisplay.setPixmap(camera_pixmap) # display event_pixmap
                 event_pixmap = event_pixmap.scaled((int)(width/2),self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
                 self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
+
+            print('\t', datetime.now() - s, '\t disp overlay')
+            s = datetime.now()
         else:
             event_pixmap = event_pixmap.scaled(width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
             self.frameDisplay.clear() # display event_pixmap
             self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
+
+            print('\t', datetime.now() - s, '\t disp normal')
+            s = datetime.now()
 
 
 # I cannot for the life of me manage to import this from another file so it's in here instead
@@ -552,10 +603,22 @@ class EventStore():
         elif len(args) > 1:
             i1, j1 = self.iloc(a)
             i2, j2 = self.iloc(b)
-            ret = self.event_packets[i1][j1:]
+            start = self.event_packets[i1][j1:]
+            end = self.event_packets[i2][:j2]
+            length = 0
+            for packet in self.event_packets[i1:i2+1]:
+                length = length + len(packet)
+            ret = np.empty(length, dtype=self.event_packets[i1][j1].dtype)
+            i = 0
+            j = i + len(start)
+            ret[i:j] = start
             for packet in self.event_packets[i1+1:i2]:
-                ret = np.append(ret, packet)
-            np.append(ret, self.event_packets[i2][:j2])
+                i = j
+                j = i + len(packet)
+                ret[i:j] = packet
+            i = j
+            j = i + len(end)
+            ret[i:j] = end
             return ret
         
         raise IndexError("Invalid indices")
