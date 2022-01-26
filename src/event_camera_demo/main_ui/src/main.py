@@ -1,3 +1,4 @@
+from typing import final
 from PyQt5 import QtWidgets, uic, QtCore, QtGui
 import sys
 import os
@@ -10,7 +11,9 @@ from enum import Enum
 from pprint import pprint
 from sensor_msgs.msg import Image
 from datetime import datetime
-
+from pyqtgraph import opengl as gl
+from math import sin, cos, pi
+# from eventstore import EventStore
 bridge = CvBridge()
 
 # live - showing live events from camera
@@ -22,7 +25,7 @@ states = Enum("states", ("live", "record", "playback", "pause", 'back'))
 # main class handles pretty well everything
 class EventDemoWindow(QtWidgets.QMainWindow):
 
-    fps = 30 # frames to display each second
+    fps = 15 # frames to display each second
     min_frame_size = 0.40 # minimum frame width (measurd in equalivalent min playback speed. basicaly when the playback speed is lowwer than this number the frames stop getting smaller and start overlapping so that there are still enought events each frame to be able to see something)
 
     # datatpe used to store events
@@ -46,6 +49,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.last_live_duration = 100000
         self.live_camera_data = None
         self.recorded_camera_data = {"frames":[], "timestamps":[]}
+        self.frame_exclusion = False
 
         # load ui
         uic.loadUi(os.path.join(os.path.dirname(os.path.realpath(__file__)), "video_demo.ui"), self)
@@ -67,6 +71,18 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         
         self.cameraCheck.stateChanged.connect(self.cameraUpdate_check)
         self.overlayCheck.stateChanged.connect(self.overlayUpdate_check)
+
+        # 3d stuff
+        self.voxelDisplay.setCameraPosition(distance=20)
+
+        g = gl.GLGridItem()
+        self.voxelDisplay.addItem(g)
+        
+        dat = np.zeros((1, 3))
+        self.voxel_positive = gl.GLScatterPlotItem(pos=dat, color=(1,0,0,1), size=0.1, pxMode=False)
+        self.voxel_negative = gl.GLScatterPlotItem(pos=dat, color=(0,0,1,1), size=0.1, pxMode=False)
+        self.voxelDisplay.addItem(self.voxel_positive)
+        self.voxelDisplay.addItem(self.voxel_negative)
 
         # display refresh timer
         self.updateTimer = QtCore.QTimer()
@@ -281,8 +297,6 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         if self.state == states.record:
             self.recorded_event_data.append(events)
 
-        
-
         # this if statement triggers once for the first event packet and signals to rest of the class to start generating frames
         # also saves event_image width and height (which should never change)
         if self.last_frame_end == None:
@@ -295,7 +309,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.live_event_data.append(events)
             if self.user_integration_interval is None:
                 self.display_new_frame(events)
-            # self.display_new_live_frame()
+            # else:
+            #     self.display_new_live_frame()
 
     def new_frame(self, event_image):
         self.live_camera_data = bridge.imgmsg_to_cv2(event_image, desired_encoding='passthrough')
@@ -374,7 +389,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         # get just the data from this frame
         data = data[index_start:index_end+1]
 
-        # self.display_new_frame(data)
+        self.display_new_frame(data)
         try:
             # sometimes this errors out, no clue why
             self.live_event_data.clean(timestamps[index_start])
@@ -447,11 +462,29 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
     # display the given event data as a frame
     def display_new_frame(self, event_data):
+        # print('disp')
         s = datetime.now()
         # get stuff
         x = event_data['x']
         y = event_data['y']
         p = event_data['polarity']
+
+        # ts = (event_data['timestamp'] - event_data['timestamp'][0])
+
+
+        # bool_p = np.array(p.copy(), dtype=bool)
+        # xp = x[bool_p]
+        # xn = x[np.invert(bool_p)]
+        # yp = y[bool_p]
+        # yn = y[np.invert(bool_p)]
+        # tp = ts[bool_p]
+        # tn = ts[np.invert(bool_p)]
+
+        # pos = np.array([xp, yp, tp]).transpose()
+        # neg = np.array([xn, yn, tn]).transpose()
+
+        # self.voxel_positive.setData(pos=pos)
+        # self.voxel_negative.setData(pos=neg)
         
         camera_frame = None
         if self.state == states.live or self.state == states.record:
@@ -468,30 +501,42 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         if self.overlayCheck.checkState() == 2 and camera_frame is not None:
             frame = camera_frame.copy()
         else:
-            frame = np.ones((self.image_height, self.image_width, 3), dtype=np.uint8)*200
+            if not self.fastCheck.checkState() == 2:
+                frame = np.ones((self.image_height, self.image_width, 3), dtype=np.uint8)*200
+            else:
+                frame = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
 
         # use stuff to make event_image
-        # frame[y, x, :] = 0
+        if not self.fastCheck.checkState() == 2:
+            frame[y, x, :] = 0
         frame[y, x, p * 2] = 255
 
-        # don't ask about the , self.image_width*3 i don't know what it does but it's important
+        # don't ask about the self.image_width*3. I don't know what it does but it's important
         event_image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
         event_pixmap = QtGui.QPixmap(event_image) # convert qt event_image to qt event_pixmap
-        width = self.eventDisplay.width() + self.frameDisplay.width()
+
+        width = self.displayFrame.width() - 15
+        height = self.displayFrame.height() - 15
+        scaled_width = (int)(height * self.image_width / self.image_height)
 
         if self.cameraCheck.checkState() == 2:
             if camera_frame is not None:
+                scaled_width = min((int)(width/2), scaled_width)
                 camera_image = QtGui.QImage(camera_frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
                 camera_pixmap = QtGui.QPixmap(camera_image)
-                camera_pixmap = camera_pixmap.scaled((int)(width/2),self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+                camera_pixmap = camera_pixmap.scaled((int)(scaled_width),self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
                 self.frameDisplay.setPixmap(camera_pixmap) # display event_pixmap
-                event_pixmap = event_pixmap.scaled((int)(width/2),self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
-                self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
+                event_pixmap = event_pixmap.scaled((int)(scaled_width),self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+                self.eventDisplay.setMinimumWidth((int)(scaled_width))
+                self.frameDisplay.setMinimumWidth((int)(scaled_width))
         else:
-            event_pixmap = event_pixmap.scaled(width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+            scaled_width = min(width, scaled_width)
+            event_pixmap = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
             self.frameDisplay.clear() # display event_pixmap
-            self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
+            self.eventDisplay.setMinimumWidth(scaled_width)
+            self.frameDisplay.setMinimumWidth(0)
 
+        self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
 
 # I cannot for the life of me manage to import this from another file so it's in here instead
 class EventStore():
@@ -555,8 +600,8 @@ class EventStore():
             i2, j2 = self.iloc(b)
             start = self.event_packets[i1][j1:]
             end = self.event_packets[i2][:j2]
-            length = 0
-            for packet in self.event_packets[i1:i2+1]:
+            length = len(start) + len(end)
+            for packet in self.event_packets[i1+1:i2]:
                 length = length + len(packet)
             ret = np.empty(length, dtype=self.event_packets[i1][j1].dtype)
             i = 0
