@@ -11,10 +11,12 @@ void eventsCallback(const dvs_msgs::EventArray::ConstPtr& msg)
 {
   int data_length = msg->events.size();
 
+  // create image for events
   cv_bridge::CvImage data_out;
   data_out.image = cv::Mat(data_length, 4, CV_64FC1);
   data_out.encoding = "64FC1";
 
+  // fill image with events to be sent out
   for(int i = 0; i < msg->events.size(); i++)
   {
     data_out.image.at<_Float64>(cv::Point(0, i)) = (_Float64)msg->events[i].ts.sec + (_Float64)msg->events[i].ts.nsec * 10e-10;
@@ -23,6 +25,7 @@ void eventsCallback(const dvs_msgs::EventArray::ConstPtr& msg)
     data_out.image.at<_Float64>(cv::Point(3, i)) = msg->events[i].polarity;
   }
 
+  // create packet for data and add data/image to it
   demo_msgs::EventPacket msg_out = demo_msgs::EventPacket();
   msg_out.events = *(data_out.toImageMsg());
   msg_out.height = msg->height;

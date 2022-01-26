@@ -6,6 +6,7 @@ from cv_bridge import CvBridge
 import traceback
 
 # This node was made for use with dv-gui/dv-runtime software
+# it is now obselete with the rpg_dvs_ros driver
 
 bridge = CvBridge()
 
