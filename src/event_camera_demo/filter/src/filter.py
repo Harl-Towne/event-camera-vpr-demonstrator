@@ -5,6 +5,9 @@ import numpy as np
 from pprint import pprint
 import tonic
 
+# filter node using Tonic
+# does not run fast enough to be used with real time data
+
 pub = None
 printed = False
 bridge = CvBridge()
@@ -29,21 +32,22 @@ def callback(data_in):
         else:
             events[column] = event_packet[:, i]
 
+    # run filter
     events_denoised = denoise_transform(events)
 
+    # create out data
     data_out = EventPacket()
     data_out.width = data_in.width
     data_out.height = data_in.height
-
     events_out = np.empty((len(events_denoised), 4), dtype=np.float64)
     for i, column in enumerate(['t', 'x', 'y', 'p']):
         if column == 't':
             events_out[:, i] = events_denoised[column] / 10e6
         else:
             events_out[:, i] = events_denoised[column]
-
+    # convert out event matrix into image for faster send/receiving
     data_out.events = bridge.cv2_to_imgmsg(events_out, encoding="64FC1")
-
+    
     pub.publish(data_out)
 
 def start_node(subsribe_to="event_camera_demo/event_packets", publish_to="event_camera_demo/event_display", block=True):

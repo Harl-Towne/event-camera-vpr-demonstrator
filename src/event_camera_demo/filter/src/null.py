@@ -1,6 +1,9 @@
 import rospy
 from demo_msgs.msg import EventPacket
 
+# this node does not affect or change the data, it simply passed the data through
+# its purpose is to fill the slot where a filter node should be if a filter is not wanted
+
 pub = None
 
 def callback(data):

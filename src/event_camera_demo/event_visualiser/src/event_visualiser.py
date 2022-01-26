@@ -1,9 +1,10 @@
 import rospy
-from event_camera_demo.msg import EventPacket
+from demo_msgs.msg import EventPacket
+from sensor_msgs.msg import Image
 from demo_msgs.msg import EventPacket
 import numpy as np
-import ros_numpy as rnp
 from cv_bridge import CvBridge
+import ros_numpy as rnp
 from pprint import pprint
 import sys
 # this node subscribes to the davis346 node and creates an event visual from the event data

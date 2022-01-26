@@ -25,7 +25,7 @@ states = Enum("states", ("live", "record", "playback", "pause", 'back'))
 # main class handles pretty well everything
 class EventDemoWindow(QtWidgets.QMainWindow):
 
-    fps = 15 # frames to display each second
+    fps = 25 # frames to display each second
     min_frame_size = 0.40 # minimum frame width (measurd in equalivalent min playback speed. basicaly when the playback speed is lowwer than this number the frames stop getting smaller and start overlapping so that there are still enought events each frame to be able to see something)
 
     # datatpe used to store events
@@ -68,9 +68,6 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.integrationBar.valueChanged.connect(self.integrationUpdate_bar)
         self.integrationBox.valueChanged.connect(self.integrationUpdate_box)
         self.integrationCheck.stateChanged.connect(self.integrationUpdate_check)
-        
-        self.cameraCheck.stateChanged.connect(self.cameraUpdate_check)
-        self.overlayCheck.stateChanged.connect(self.overlayUpdate_check)
 
         # 3d stuff
         self.voxelDisplay.setCameraPosition(distance=20)
@@ -98,18 +95,6 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         rospy.init_node('event_demo_ui', anonymous=True)
         rospy.Subscriber("event_camera_demo/event_display", EventPacket, self.new_event_packet)
         rospy.Subscriber("dvs/image_raw", Image, self.new_frame)
-
-    def cameraUpdate_check(self, value):
-        pass
-        # policy = self.frameDisplay.sizePolicy()
-        # if value == 2:
-        #     policy.setHorizontalStretch(1)
-        # else:
-        #     policy.setHorizontalStretch(0)
-        # self.frameDisplay.setSizePolicy(policy)
-
-    def overlayUpdate_check(self, value):
-        pass
 
     # when the bar is press pause the recording
     # this is needs because if the recording was playing at the same time it would fight the user
@@ -235,7 +220,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
     # trigger user/auto integration range when the box is ticked
     def integrationUpdate_check(self, value):
-        if value == 2: # 2 is checked
+        if value == 2: # 2 is when the box is ticked
             self.integrationBox.setEnabled(False)
             self.integrationBar.setEnabled(False)
             self.user_integration_interval = None
@@ -324,7 +309,10 @@ class EventDemoWindow(QtWidgets.QMainWindow):
     # self.state == states.pause will cause this function to return the same time range (assuming playback_speed doesn't change)
     def new_frame_window(self, playback_speed=1):
         frame_step = 1/(self.fps/playback_speed)
+        # frame width set automaticaly
         frame_width = max(frame_step, 1/(self.fps/self.min_frame_size))
+        # frame width either used to update integration slider
+        # or set to user value
         if self.user_integration_interval is None:
             if self.state == states.playback or self.state == states.pause:
                 self.integrationBox.setValue(frame_width)
@@ -344,6 +332,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         if self.state == states.playback or self.state == states.pause:
             return self.last_frame_end - frame_width, self.last_frame_end
         else:
+            # if live data is being displayed then the end of the frame window is set to the end of the live data.
+            # this keeps the display in sync with the data coming in.
             live_end = self.live_event_data.loc(-1)['timestamp']
             return live_end - frame_width, live_end
 
@@ -354,6 +344,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         if not (state == states.live or state == states.record):
             return
         
+        # if the user has not set their own integration interval then this function is not needed (but is still run on a timer)
         if self.user_integration_interval is None:
             return
 
@@ -437,10 +428,6 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         index_start = np.searchsorted(timestamps, time_start)
         index_end = np.searchsorted(timestamps, time_end, side='right')
 
-        # correct indexes
-        # index_start = index_start + i
-        # index_end = index_end + i     
-
         # update for use in next data limits
         self.last_playback_indices = [index_start + i, index_end + i] 
 
@@ -452,25 +439,20 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             index_end = np.searchsorted(timestamps, time_end, side='right')
             # update for use in next data limits
             self.last_playback_indices = [index_start, index_end] 
-
         
-
         # get just the data from this frame
         data = data[index_start:index_end+1]
 
+        # display the data
         self.display_new_frame(data)
 
     # display the given event data as a frame
     def display_new_frame(self, event_data):
-        # print('disp')
-        s = datetime.now()
-        # get stuff
         x = event_data['x']
         y = event_data['y']
         p = event_data['polarity']
 
         # ts = (event_data['timestamp'] - event_data['timestamp'][0])
-
 
         # bool_p = np.array(p.copy(), dtype=bool)
         # xp = x[bool_p]
@@ -486,10 +468,13 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         # self.voxel_positive.setData(pos=pos)
         # self.voxel_negative.setData(pos=neg)
         
+        # get camera frame to display
         camera_frame = None
         if self.state == states.live or self.state == states.record:
+            # most recent frame if displaying live
             camera_frame = self.live_camera_data
         elif len(self.recorded_camera_data['timestamps']) > 0 and len(event_data['timestamp']) > 0: # sometimes this function will be asked to display an empty event frame
+            # frame most closely lining up wit the start of the frame window if displaing recorded
             target_ts = event_data['timestamp'][0]
             i = np.searchsorted(self.recorded_camera_data['timestamps'], target_ts)
             if i >= len(self.recorded_camera_data['frames']):
@@ -497,45 +482,58 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             camera_frame = self.recorded_camera_data['frames'][i]
 
 
-        
+        # initialise frame for event display
         if self.overlayCheck.checkState() == 2 and camera_frame is not None:
+            # background is camera frame
             frame = camera_frame.copy()
         else:
             if not self.fastCheck.checkState() == 2:
+                # background is light grey
                 frame = np.ones((self.image_height, self.image_width, 3), dtype=np.uint8)*200
             else:
+                # background is black
+                # is black background is needed if "frame[y, x, :] = 0" line will be skipped later for faster event displays
                 frame = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
 
-        # use stuff to make event_image
+        # add events to image
         if not self.fastCheck.checkState() == 2:
+            # skip this for faster event display as it can take a long time in the case of many events
             frame[y, x, :] = 0
         frame[y, x, p * 2] = 255
 
+        # convert frrame to pixmap
         # don't ask about the self.image_width*3. I don't know what it does but it's important
         event_image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
-        event_pixmap = QtGui.QPixmap(event_image) # convert qt event_image to qt event_pixmap
+        event_pixmap = QtGui.QPixmap(event_image)
 
-        width = self.displayFrame.width() - 15
+        # calculate appropriate width for images
+        # the -15 leave a border. this needs to be >0 otherwise the window will uncontrolably expand.
+        # The expanding is because the frames width is often a couple of pixels wider/higher than the combined widths of all its children
+        width = self.displayFrame.width() - 15     
         height = self.displayFrame.height() - 15
         scaled_width = (int)(height * self.image_width / self.image_height)
 
         if self.cameraCheck.checkState() == 2:
+            # set width of each display to half
+            scaled_width = min((int)(width/2), scaled_width)
+            # display camera frame if it exists
             if camera_frame is not None:
-                scaled_width = min((int)(width/2), scaled_width)
                 camera_image = QtGui.QImage(camera_frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
                 camera_pixmap = QtGui.QPixmap(camera_image)
-                camera_pixmap = camera_pixmap.scaled((int)(scaled_width),self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+                camera_pixmap = camera_pixmap.scaled((int)(scaled_width),self.frameDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
                 self.frameDisplay.setPixmap(camera_pixmap) # display event_pixmap
-                event_pixmap = event_pixmap.scaled((int)(scaled_width),self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
-                self.eventDisplay.setMinimumWidth((int)(scaled_width))
-                self.frameDisplay.setMinimumWidth((int)(scaled_width))
+            self.frameDisplay.setMinimumWidth((int)(scaled_width))
         else:
+            # set width of each display to full
             scaled_width = min(width, scaled_width)
-            event_pixmap = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+
+            # clear other display and set its width to zero
             self.frameDisplay.clear() # display event_pixmap
-            self.eventDisplay.setMinimumWidth(scaled_width)
             self.frameDisplay.setMinimumWidth(0)
 
+        # display the event frame
+        self.eventDisplay.setMinimumWidth((int)(scaled_width))
+        event_pixmap = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
         self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
 
 # I cannot for the life of me manage to import this from another file so it's in here instead
@@ -544,18 +542,26 @@ class EventStore():
     def __init__(self):
         self.event_packets = []
 
+    # add new packet to end of data
     def append(self, packet):
         self.event_packets.append(packet)
 
+    # add new packet to start of data
     def prepend(self, packet):
-        self.event_packets.prepend(packet)
+        self.event_packets.insert(0, packet)
 
+    # count total number of events
     def length(self):
         s = 0
         for packet in self.event_packets:
             s = s + len(packet)
         return s
 
+    # return data specified. parameters can be : 1 string, 1 integer or 2 integers
+    # 1 string: return parameter matching string from all events ('x', 'y', 'timestamp', 'polarity)
+    # 1 integer: return event matching index
+    # 2 integers: return events within integer range (inclusive, exclusive)
+    # indexes should be given as if the data was one big array
     def loc(self, *args): #two indexes is range
         length = self.length()
         if length == 0: # no data
@@ -574,7 +580,7 @@ class EventStore():
                 ret[i:j] = packet[k]
                 i = j
             return ret
-        # not string index (correct numbers)
+        # not string index (clamp numbers)
         else:
             if len(args) > 0:
                 a = args[0]
@@ -589,21 +595,26 @@ class EventStore():
                 elif b > length:
                     b = length - 1 # this -1 stops the last element ever being accessed but it prevents a bug that I don't want to fix
 
-        # one index 
+        # one integer index 
         if len(args) == 1:
             i, j = self.iloc(a)
             return self.event_packets[i][j]
 
-        # two indices
+        # two integer indices
         elif len(args) > 1:
+            # get start and end data points
             i1, j1 = self.iloc(a)
             i2, j2 = self.iloc(b)
+            # get start and end data (likely part of a larger array)
             start = self.event_packets[i1][j1:]
             end = self.event_packets[i2][:j2]
+            # count length of data to be returned
             length = len(start) + len(end)
             for packet in self.event_packets[i1+1:i2]:
                 length = length + len(packet)
+            # initialise return array
             ret = np.empty(length, dtype=self.event_packets[i1][j1].dtype)
+            # fill out return array
             i = 0
             j = i + len(start)
             ret[i:j] = start
@@ -616,10 +627,14 @@ class EventStore():
             ret[i:j] = end
             return ret
         
+        # if nothing has been returned yet then it must be the users fault
         raise IndexError("Invalid indices")
 
-    def iloc(self, j):
-        a = j
+    # locate the relative indexes from global index
+    def iloc(self, global_index):
+        j = global_index
+        # loop through all packets, decreasing j by the length of each packet, until j specifies a event in a packet
+        # this could probably be improved by indexing the length of the packets when the are added or something but for now it seems to run plenty fast enough
         i = 0
         while j >= len(self.event_packets[i]):
             j = j - len(self.event_packets[i])
@@ -628,26 +643,11 @@ class EventStore():
                 raise IndexError("Index out of range")
         return i, j
 
-    def search(self, column, value, side="left"):
-        index = 0
-        i = 0
-        j = np.searchsorted(self.event_packets[0][column], value, side=side)
-        while j >= len(self.event_packets[i]) or i == len(self.event_packets) - 1:
-            index = index + len(self.event_packets[i])
-            left_j = j
-            left_i = i
-            i = i + 1
-            j = np.searchsorted(self.event_packets[i][column], value, side=side)
-
-        if j == 0 and side == "left":
-            i = left_i
-            j = left_j
-
-        return index + j
-
+    # delete all data
     def wipe(self):
         self.event_packets = []
 
+    # remove all data before the specified timestamp
     def clean(self, cuttoff):
         while self.length() > 0 and self.event_packets[0][-1]['timestamp'] < cuttoff:
             self.event_packets.pop(0)
