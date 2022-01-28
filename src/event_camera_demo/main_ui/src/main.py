@@ -12,7 +12,7 @@ from pprint import pprint
 from sensor_msgs.msg import Image
 from datetime import datetime
 from pyqtgraph import opengl as gl
-from math import sin, cos, pi
+
 # from eventstore import EventStore
 bridge = CvBridge()
 
@@ -22,10 +22,11 @@ bridge = CvBridge()
 # pause - showing previously recorded events but not moving in time
 states = Enum("states", ("live", "record", "playback", "pause", 'back'))
 
-# main class handles pretty well everything
+# main ui class
+# handels main window and all events as well as the ros node and its' callbacks
 class EventDemoWindow(QtWidgets.QMainWindow):
 
-    fps = 25 # frames to display each second
+    fps = 24 # frames to display each second
     min_frame_size = 0.40 # minimum frame width (measurd in equalivalent min playback speed. basicaly when the playback speed is lowwer than this number the frames stop getting smaller and start overlapping so that there are still enought events each frame to be able to see something)
 
     # datatpe used to store events
@@ -70,14 +71,14 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.integrationCheck.stateChanged.connect(self.integrationUpdate_check)
 
         # 3d stuff
-        self.voxelDisplay.setCameraPosition(distance=20)
+        self.voxelDisplay.setCameraPosition(distance=50)
 
         g = gl.GLGridItem()
         self.voxelDisplay.addItem(g)
         
         dat = np.zeros((1, 3))
-        self.voxel_positive = gl.GLScatterPlotItem(pos=dat, color=(1,0,0,1), size=0.1, pxMode=False)
-        self.voxel_negative = gl.GLScatterPlotItem(pos=dat, color=(0,0,1,1), size=0.1, pxMode=False)
+        self.voxel_positive = gl.GLScatterPlotItem(pos=dat, color=(0,0,1,1), size=0.1, pxMode=False)
+        self.voxel_negative = gl.GLScatterPlotItem(pos=dat, color=(1,0,0,1), size=0.1, pxMode=False)
         self.voxelDisplay.addItem(self.voxel_positive)
         self.voxelDisplay.addItem(self.voxel_negative)
 
@@ -294,16 +295,14 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.live_event_data.append(events)
             if self.user_integration_interval is None:
                 self.display_new_frame(events)
-            # else:
-            #     self.display_new_live_frame()
 
-    def new_frame(self, event_image):
-        self.live_camera_data = bridge.imgmsg_to_cv2(event_image, desired_encoding='passthrough')
+    # call back for new camera image
+    def new_frame(self, camera_image):
+        self.live_camera_data = bridge.imgmsg_to_cv2(camera_image, desired_encoding='passthrough')
+        # timestamp of the camera frame is assumed to be the same as the most recent event
         if self.state == states.record:
             self.recorded_camera_data['frames'].append(self.live_camera_data)
             self.recorded_camera_data['timestamps'].append(self.live_event_data.loc(-1)['timestamp'])
-
-
 
     # calcualtes the new time range for the next frame to be displayed on screen
     # self.state == states.pause will cause this function to return the same time range (assuming playback_speed doesn't change)
@@ -337,6 +336,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             live_end = self.live_event_data.loc(-1)['timestamp']
             return live_end - frame_width, live_end
 
+    # called on a timer
+    # gets one frame of data from the stored live data and then displays it
     def display_new_live_frame(self):
         # save state just in case it changes while this functon is running
         # it shouldn't, but just in case
@@ -387,7 +388,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         except:
             pass
         
-
+    # called on a timer
     # cut one frame worth of event data out of the recorded event data and then display it
     def display_new_playback_frame(self):
         self.update_time()
@@ -452,21 +453,33 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         y = event_data['y']
         p = event_data['polarity']
 
-        # ts = (event_data['timestamp'] - event_data['timestamp'][0])
+        # remove offset from timestamps
+        ts = (event_data['timestamp'] - event_data['timestamp'][-1])
 
-        # bool_p = np.array(p.copy(), dtype=bool)
-        # xp = x[bool_p]
-        # xn = x[np.invert(bool_p)]
-        # yp = y[bool_p]
-        # yn = y[np.invert(bool_p)]
-        # tp = ts[bool_p]
-        # tn = ts[np.invert(bool_p)]
+        # filter x/y/ts by polarity
+        bool_p = np.array(p.copy(), dtype=bool)
+        xp = x[bool_p]
+        xn = x[np.invert(bool_p)]
+        yp = y[bool_p]
+        yn = y[np.invert(bool_p)]
+        tp = ts[bool_p]
+        tn = ts[np.invert(bool_p)]
 
-        # pos = np.array([xp, yp, tp]).transpose()
-        # neg = np.array([xn, yn, tn]).transpose()
+        # scale x/y/ts to more reasonable values
+        yp = (self.image_height - yp) * 0.1
+        yn = (self.image_height - yn) * 0.1
 
-        # self.voxel_positive.setData(pos=pos)
-        # self.voxel_negative.setData(pos=neg)
+        xp = (xp - self.image_width/2) * -0.1
+        xn = (xn - self.image_width/2) * -0.1
+
+        tp = tp * 500
+        tn = tn * 500
+
+        # display x/y/ts
+        pos = np.array([xp, tp, yp]).transpose()
+        neg = np.array([xn, tn, yn]).transpose()
+        self.voxel_positive.setData(pos=pos)
+        self.voxel_negative.setData(pos=neg)
         
         # get camera frame to display
         camera_frame = None
@@ -536,6 +549,9 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         event_pixmap = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
         self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
 
+# EventStore class is intended for storing large quantaties of events, in the form of numpy arrays, quickly.
+# It stores each numpy matrix containing a set of events in a list so that joining them together isn't required.
+# The numpt matricies are then access as if there were joined, the .loc function will always return one matrix no matter how many matricies the result spaned
 # I cannot for the life of me manage to import this from another file so it's in here instead
 class EventStore():
 
