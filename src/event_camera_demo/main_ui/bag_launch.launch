@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="event_format_converter" name="format_converter" type="node"/>
+    <node pkg="filter" name="null_filter" type="null.py"/>
+    <node pkg="main_ui" name="event_demo_ui" type="main.py"/>
+</launch>
