@@ -51,6 +51,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.live_camera_data = None
         self.recorded_camera_data = {"frames":[], "timestamps":[]}
         self.frame_exclusion = False
+        self.process_start_time = None
+        self.last_receive_timestamp = None
 
         # load ui
         uic.loadUi(os.path.join(os.path.dirname(os.path.realpath(__file__)), "video_demo.ui"), self)
@@ -290,19 +292,21 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.image_width = data.width
             self.image_height = data.height
 
+        self.last_receive_timestamp = events[-1]['timestamp']
         # if live data is currently being displayed then save that too
         if self.state == states.live or  self.state == states.record:
-            self.live_event_data.append(events)
             if self.user_integration_interval is None:
                 self.display_new_frame(events)
+            else:
+                self.live_event_data.append(events)
 
     # call back for new camera image
     def new_frame(self, camera_image):
         self.live_camera_data = bridge.imgmsg_to_cv2(camera_image, desired_encoding='passthrough')
         # timestamp of the camera frame is assumed to be the same as the most recent event
-        if self.state == states.record:
+        if self.state == states.record and self.last_receive_timestamp is not None:
+            self.recorded_camera_data['timestamps'].append(self.last_receive_timestamp)
             self.recorded_camera_data['frames'].append(self.live_camera_data)
-            self.recorded_camera_data['timestamps'].append(self.live_event_data.loc(-1)['timestamp'])
 
     # calcualtes the new time range for the next frame to be displayed on screen
     # self.state == states.pause will cause this function to return the same time range (assuming playback_speed doesn't change)
@@ -354,6 +358,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         # not sure why
         if self.live_event_data.length() == 0:
             return
+
+        self.process_start_time = datetime.now()
         
         # get timestamps
         time_start, time_end = self.new_frame_window()
@@ -416,6 +422,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         if self.recorded_event_data.length == 0:
             return
 
+        self.process_start_time = datetime.now()
+
         # get timestamps
         time_start, time_end = self.new_frame_window(playback_speed)
 
@@ -449,105 +457,120 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
     # display the given event data as a frame
     def display_new_frame(self, event_data):
+        if self.process_start_time is None:
+            self.process_start_time = datetime.now()
+
         x = event_data['x']
         y = event_data['y']
         p = event_data['polarity']
 
-        # remove offset from timestamps
-        ts = (event_data['timestamp'] - event_data['timestamp'][-1])
+        if self.tabWidget.currentIndex() == 1:
 
-        # filter x/y/ts by polarity
-        bool_p = np.array(p.copy(), dtype=bool)
-        xp = x[bool_p]
-        xn = x[np.invert(bool_p)]
-        yp = y[bool_p]
-        yn = y[np.invert(bool_p)]
-        tp = ts[bool_p]
-        tn = ts[np.invert(bool_p)]
+            # remove offset from timestamps
+            ts = (event_data['timestamp'] - event_data['timestamp'][-1])
 
-        # scale x/y/ts to more reasonable values
-        yp = (self.image_height - yp) * 0.1
-        yn = (self.image_height - yn) * 0.1
+            # filter x/y/ts by polarity
+            bool_p = np.array(p.copy(), dtype=bool)
+            xp = x[bool_p]
+            xn = x[np.invert(bool_p)]
+            yp = y[bool_p]
+            yn = y[np.invert(bool_p)]
+            tp = ts[bool_p]
+            tn = ts[np.invert(bool_p)]
 
-        xp = (xp - self.image_width/2) * -0.1
-        xn = (xn - self.image_width/2) * -0.1
+            # scale x/y/ts to more reasonable values
+            yp = (self.image_height - yp) * 0.1
+            yn = (self.image_height - yn) * 0.1
 
-        tp = tp * 500
-        tn = tn * 500
+            xp = (xp - self.image_width/2) * -0.1
+            xn = (xn - self.image_width/2) * -0.1
 
-        # display x/y/ts
-        pos = np.array([xp, tp, yp]).transpose()
-        neg = np.array([xn, tn, yn]).transpose()
-        self.voxel_positive.setData(pos=pos)
-        self.voxel_negative.setData(pos=neg)
-        
-        # get camera frame to display
-        camera_frame = None
-        if self.state == states.live or self.state == states.record:
-            # most recent frame if displaying live
-            camera_frame = self.live_camera_data
-        elif len(self.recorded_camera_data['timestamps']) > 0 and len(event_data['timestamp']) > 0: # sometimes this function will be asked to display an empty event frame
-            # frame most closely lining up wit the start of the frame window if displaing recorded
-            target_ts = event_data['timestamp'][0]
-            i = np.searchsorted(self.recorded_camera_data['timestamps'], target_ts)
-            if i >= len(self.recorded_camera_data['frames']):
-                i = len(self.recorded_camera_data['frames']) - 1
-            camera_frame = self.recorded_camera_data['frames'][i]
+            tp = tp * 500
+            tn = tn * 500
 
+            # display x/y/ts
+            pos = np.array([xp, tp, yp]).transpose()
+            neg = np.array([xn, tn, yn]).transpose()
+            self.voxel_positive.setData(pos=pos)
+            self.voxel_negative.setData(pos=neg)
 
-        # initialise frame for event display
-        if self.overlayCheck.checkState() == 2 and camera_frame is not None:
-            # background is camera frame
-            frame = camera_frame.copy()
         else:
-            if not self.fastCheck.checkState() == 2:
-                # background is light grey
-                frame = np.ones((self.image_height, self.image_width, 3), dtype=np.uint8)*200
+            
+            # get camera frame to display
+            camera_frame = None
+            if self.state == states.live or self.state == states.record:
+                # most recent frame if displaying live
+                camera_frame = self.live_camera_data
+            elif len(self.recorded_camera_data['timestamps']) > 0 and len(event_data['timestamp']) > 0: # sometimes this function will be asked to display an empty event frame
+                # frame most closely lining up wit the start of the frame window if displaing recorded
+                target_ts = event_data['timestamp'][0]
+                i = np.searchsorted(self.recorded_camera_data['timestamps'], target_ts)
+                if i >= len(self.recorded_camera_data['frames']):
+                    i = len(self.recorded_camera_data['frames']) - 1
+                camera_frame = self.recorded_camera_data['frames'][i]
+
+
+            # initialise frame for event display
+            if self.overlayCheck.checkState() == 2 and camera_frame is not None:
+                # background is camera frame
+                frame = camera_frame.copy()
             else:
-                # background is black
-                # is black background is needed if "frame[y, x, :] = 0" line will be skipped later for faster event displays
-                frame = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
+                if not self.fastCheck.checkState() == 2:
+                    # background is light grey
+                    frame = np.ones((self.image_height, self.image_width, 3), dtype=np.uint8)*200
+                else:
+                    # background is black
+                    # is black background is needed if "frame[y, x, :] = 0" line will be skipped later for faster event displays
+                    frame = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
 
-        # add events to image
-        if not self.fastCheck.checkState() == 2:
-            # skip this for faster event display as it can take a long time in the case of many events
-            frame[y, x, :] = 0
-        frame[y, x, p * 2] = 255
+            # add events to image
+            if not self.fastCheck.checkState() == 2:
+                # skip this for faster event display as it can take a long time in the case of many events
+                frame[y, x, :] = 0
+            frame[y, x, p * 2] = 255
 
-        # convert frrame to pixmap
-        # don't ask about the self.image_width*3. I don't know what it does but it's important
-        event_image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
-        event_pixmap = QtGui.QPixmap(event_image)
+            # convert frrame to pixmap
+            # don't ask about the self.image_width*3. I don't know what it does but it's important
+            event_image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
+            event_pixmap = QtGui.QPixmap(event_image)
 
-        # calculate appropriate width for images
-        # the -15 leave a border. this needs to be >0 otherwise the window will uncontrolably expand.
-        # The expanding is because the frames width is often a couple of pixels wider/higher than the combined widths of all its children
-        width = self.displayFrame.width() - 15     
-        height = self.displayFrame.height() - 15
-        scaled_width = (int)(height * self.image_width / self.image_height)
+            # calculate appropriate width for images
+            # the -15 leave a border. this needs to be >0 otherwise the window will uncontrolably expand.
+            # The expanding is because the frames width is often a couple of pixels wider/higher than the combined widths of all its children
+            width = self.displayFrame.width() - 15     
+            height = self.displayFrame.height() - 15
+            scaled_width = (int)(height * self.image_width / self.image_height)
 
-        if self.cameraCheck.checkState() == 2:
-            # set width of each display to half
-            scaled_width = min((int)(width/2), scaled_width)
-            # display camera frame if it exists
-            if camera_frame is not None:
-                camera_image = QtGui.QImage(camera_frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
-                camera_pixmap = QtGui.QPixmap(camera_image)
-                camera_pixmap = camera_pixmap.scaled((int)(scaled_width),self.frameDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
-                self.frameDisplay.setPixmap(camera_pixmap) # display event_pixmap
-            self.frameDisplay.setMinimumWidth((int)(scaled_width))
-        else:
-            # set width of each display to full
-            scaled_width = min(width, scaled_width)
+            if self.cameraCheck.checkState() == 2:
+                # set width of each display to half
+                scaled_width = min((int)(width/2), scaled_width)
+                # display camera frame if it exists
+                if camera_frame is not None:
+                    camera_image = QtGui.QImage(camera_frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
+                    camera_pixmap = QtGui.QPixmap(camera_image)
+                    camera_pixmap = camera_pixmap.scaled((int)(scaled_width),self.frameDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+                    self.frameDisplay.setPixmap(camera_pixmap) # display event_pixmap
+                self.frameDisplay.setMinimumWidth((int)(scaled_width))
+            else:
+                # set width of each display to full
+                scaled_width = min(width, scaled_width)
 
-            # clear other display and set its width to zero
-            self.frameDisplay.clear() # display event_pixmap
-            self.frameDisplay.setMinimumWidth(0)
+                # clear other display and set its width to zero
+                self.frameDisplay.clear() # display event_pixmap
+                self.frameDisplay.setMinimumWidth(0)
 
-        # display the event frame
-        self.eventDisplay.setMinimumWidth((int)(scaled_width))
-        event_pixmap = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
-        self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
+            # display the event frame
+            self.eventDisplay.setMinimumWidth((int)(scaled_width))
+            event_pixmap = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+            self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
+
+        performance = datetime.now()-self.process_start_time
+        performance = performance.total_seconds()
+        performance = (1/self.fps) / performance * 100
+
+        message = "Displaying at {:4.0f}% of Real Time".format(performance)
+        self.speedLbl.setText(message)
+        self.process_start_time = None
 
 # EventStore class is intended for storing large quantaties of events, in the form of numpy arrays, quickly.
 # It stores each numpy matrix containing a set of events in a list so that joining them together isn't required.
@@ -602,13 +625,13 @@ class EventStore():
                 a = args[0]
                 if a < 0:
                     a = length + a
-                elif a > length:
+                elif a >= length:
                     a = length - 1 # this -1 stops the last element ever being accessed but it prevents a bug that I don't want to fix
             if len(args) > 1:
                 b = args[1]
                 if b <= 0:
                     b = length + b
-                elif b > length:
+                elif b >= length:
                     b = length - 1 # this -1 stops the last element ever being accessed but it prevents a bug that I don't want to fix
 
         # one integer index 
@@ -656,7 +679,7 @@ class EventStore():
             j = j - len(self.event_packets[i])
             i = i + 1
             if i >= len(self.event_packets):
-                raise IndexError("Index out of range")
+                raise IndexError("Index {} out of range {}.".format(global_index, self.length()))
         return i, j
 
     # delete all data
