@@ -4,6 +4,7 @@
 #include <demo_msgs/EventPacket.h>
 #include <ros/console.h>
 #include <string>
+// #include <stdm
 
 ros::Publisher pub;
 
@@ -19,10 +20,10 @@ void eventsCallback(const dvs_msgs::EventArray::ConstPtr& msg)
   // fill image with events to be sent out
   for(int i = 0; i < msg->events.size(); i++)
   {
-    data_out.image.at<_Float64>(cv::Point(0, i)) = (_Float64)msg->events[i].ts.sec + (_Float64)msg->events[i].ts.nsec * 10e-10;
-    data_out.image.at<_Float64>(cv::Point(1, i)) = msg->events[i].x;
-    data_out.image.at<_Float64>(cv::Point(2, i)) = msg->events[i].y;
-    data_out.image.at<_Float64>(cv::Point(3, i)) = msg->events[i].polarity;
+    data_out.image.at<float>(cv::Point(0, i)) = (float)msg->events[i].ts.sec + (float)msg->events[i].ts.nsec * 10e-10;
+    data_out.image.at<float>(cv::Point(1, i)) = msg->events[i].x;
+    data_out.image.at<float>(cv::Point(2, i)) = msg->events[i].y;
+    data_out.image.at<float>(cv::Point(3, i)) = msg->events[i].polarity;
   }
 
   // create packet for data and add data/image to it
