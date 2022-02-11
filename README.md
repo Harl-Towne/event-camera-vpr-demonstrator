@@ -11,6 +11,7 @@ conda install mamba -c conda-forge
 conda env create -f environment.yml -n qcreventdemoenv
 ```
 There is also a environment_versioned.yml which includes versions of all packages but I can't get a new envirment out of it so it's lucky that it doesn't seem to be necessary.
+
 4. Install various dependancies (run in enviroment)
 ```
 # needed for https://github.com/uzh-rpg/rpg_dvs_ros
