@@ -1,5 +1,5 @@
 import rospy
-from demo_msgs.msg import EventPacket
+from qcr_event_msgs.msg import EventPacket
 from cv_bridge import CvBridge
 import numpy as np
 from pprint import pprint
