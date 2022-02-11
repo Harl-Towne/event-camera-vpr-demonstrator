@@ -1,0 +1,24 @@
+name: robostackenv
+channels:
+  - robostack
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - ros-noetic-desktop
+  - ca-certificates
+  - certifi
+  - openssl
+  - compilers
+  - cmake
+  - pkg-config
+  - make
+  - ninja
+  - catkin_tools
+  - xorg-libxfixes
+  - libcaer
+  - ros-noetic-camera-info-manager
+  - ros-noetic-image-view
+  - pyqtgraph
+  - sysroot_linux-64=2.17
+prefix: /home/harl/miniconda3/envs/robostackenv

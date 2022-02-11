@@ -1,7 +1,17 @@
 # Event Camera Demo
 ## Install
-1. Install Robostack - https://github.com/RoboStack/ros-noetic
-2. Install various dependancies
+<!-- 1. Install Robostack - https://github.com/RoboStack/ros-noetic -->
+1. Install [`miniforge` / `mambaforge`](https://github.com/conda-forge/miniforge) or [`miniconda`](https://docs.conda.io/en/latest/miniconda.html)
+2. Install Mamba
+```
+conda install mamba -c conda-forge
+```
+3. Create enviroment
+```
+conda env create -f environment.yml -n qcreventdemoenv
+```
+There is also a environment_versioned.yml which includes versions of all packages but I can't get a new envirment out of it so it's lucky that it doesn't seem to be necessary.
+4. Install various dependancies (run in enviroment)
 ```
 # needed for https://github.com/uzh-rpg/rpg_dvs_ros
 mamba install libcaer -c tobiasrobotics
@@ -12,7 +22,7 @@ mamba install compilers make cmake libopencv boost-cpp
 # used to display 3D event plot 
 mamba install pyqtgraph
 ```
-3. Clone Repository
+5. Clone Repository
 ```
 git clone https://github.com/Harl-Towne/event-camera-vpr-demonstrator.git
 cd event-camera-vpr-demonstrator
