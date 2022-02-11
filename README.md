@@ -32,10 +32,10 @@ git submodule update
 ## Usage
 ### Launch Files
 ```
-# Launch appropriate nodes with ros drive for use with camera
+# Launch appropriate nodes with ros driver for use with camera
 roslaunch main_ui camera_launch.launch 
 
-# Launch appropriate nodes without ros drive for use with bag files (bag file sold seperatly)
+# Launch appropriate nodes without ros driver for use with bag files (bag file sold seperatly)
 roslaunch main_ui bag_launch.launch
 ```
 ### Manual Launching
