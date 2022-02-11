@@ -70,4 +70,6 @@ The `format_converter` node converts `dvs_msgs.EventArray` ROS mesages to `demo_
 
 The filter node filters events between the `format_converter` and `event_demo_ui` nodes. `null_filter` is a pass through filter and `tonic_filter` is intended to remove noise but currently doesn't run in real-time. The files for these nodes are in `filter/src/`.
 
-The `event_demo_ui` node is part of the main ui of the demo itself. 
+The `event_demo_ui` node is part of the main ui of the demo itself. This code for the demo program and this node is in `main_ui/src/main.py`. This file containts two classes `EventDemoWindow` and `EventStore`. 
+- `EventDemoWindow` is responsible for the main ui window, event callbacks and ROS callbacks. 
+- `EventStore` is a class for storing and retriving events quickly. Internaly the events are stored as a list of numpy matricies where each matrix is an event packet. Externaly the events are accessed as if the `EventStore` is one large matrix.
