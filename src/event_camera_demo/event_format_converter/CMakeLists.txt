@@ -10,7 +10,7 @@ project(event_format_converter)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   dvs_msgs
-  demo_msgs
+  qcr_event_msgs
   roscpp
 )
 

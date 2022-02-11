@@ -1,7 +1,7 @@
 #include "ros/ros.h"
 #include <cv_bridge/cv_bridge.h>
 #include <dvs_msgs/EventArray.h>
-#include <demo_msgs/EventPacket.h>
+#include <qcr_event_msgs/EventPacket.h>
 #include <ros/console.h>
 #include <string>
 #include <opencv2/opencv.hpp>
@@ -28,7 +28,7 @@ void eventsCallback(const dvs_msgs::EventArray::ConstPtr& msg)
   }
 
   // create packet for data and add data/image to it
-  demo_msgs::EventPacket msg_out = demo_msgs::EventPacket();
+  qcr_event_msgs::EventPacket msg_out = qcr_event_msgs::EventPacket();
   msg_out.events = *(data_out.toImageMsg());
   msg_out.height = msg->height;
   msg_out.width = msg->width;
@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
 
   ros::Subscriber event_sub = n.subscribe("dvs/events", 1, eventsCallback);
-  pub = n.advertise<demo_msgs::EventPacket>("/event_camera_demo/event_packets", 10);
+  pub = n.advertise<qcr_event_msgs::EventPacket>("/event_camera_demo/event_packets", 10);
 
   ros::spin();
 

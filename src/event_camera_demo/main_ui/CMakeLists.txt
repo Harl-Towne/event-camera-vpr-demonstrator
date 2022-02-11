@@ -10,7 +10,7 @@ project(main_ui)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   rospy
-  demo_msgs
+  qcr_event_msgs
 )
 
 ## System dependencies are found with CMake's conventions

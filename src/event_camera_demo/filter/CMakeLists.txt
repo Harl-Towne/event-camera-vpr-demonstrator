@@ -9,7 +9,7 @@ project(filter)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
-  demo_msgs
+  qcr_event_msgs
   rospy
 )
 

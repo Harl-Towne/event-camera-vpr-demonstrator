@@ -5,7 +5,7 @@ import os
 
 from cv_bridge import CvBridge
 import rospy
-from demo_msgs.msg import EventPacket
+from qcr_event_msgs.msg import EventPacket
 import numpy as np
 from enum import Enum
 from pprint import pprint
@@ -574,7 +574,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
 # EventStore class is intended for storing large quantaties of events, in the form of numpy arrays, quickly.
 # It stores each numpy matrix containing a set of events in a list so that joining them together isn't required.
-# The numpt matricies are then access as if there were joined, the .loc function will always return one matrix no matter how many matricies the result spaned
+# The numpy matricies are then access as if there were joined, the .loc function will always return one matrix no matter how many matricies the result spaned
 # I cannot for the life of me manage to import this from another file so it's in here instead
 class EventStore():
 
