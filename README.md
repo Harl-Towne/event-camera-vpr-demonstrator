@@ -1,18 +1,14 @@
 # Event Camera Demo
 ## Install
 <!-- 1. Install Robostack - https://github.com/RoboStack/ros-noetic -->
-1. Install [`miniforge` / `mambaforge`](https://github.com/conda-forge/miniforge) or [`miniconda`](https://docs.conda.io/en/latest/miniconda.html)
+1. Install [`miniforge` / `mambaforge`](https://github.com/conda-forge/miniforge) or [`miniconda`](https://docs.conda.io/en/latest/miniconda.html) and restart terminal
+
 2. Install Mamba
 ```
 conda install mamba -c conda-forge
 ```
-3. Create enviroment
-```
-conda env create -f environment.yml -n qcreventdemoenv
-```
-There is also a environment_versioned.yml which includes versions of all packages but I can't get a new envirment out of it so it's lucky that it doesn't seem to be necessary.
 
-4. Install various dependancies (run in enviroment)
+<!-- 4. Install various dependancies (run in enviroment)
 ```
 # needed for https://github.com/uzh-rpg/rpg_dvs_ros
 mamba install libcaer -c tobiasrobotics
@@ -22,13 +18,35 @@ mamba install ros-noetic-image-view
 mamba install compilers make cmake libopencv boost-cpp
 # used to display 3D event plot 
 mamba install pyqtgraph
-```
-5. Clone Repository
+``` -->
+3. Clone Repository
 ```
 git clone https://github.com/Harl-Towne/event-camera-vpr-demonstrator.git
 cd event-camera-vpr-demonstrator
 git submodule init
 git submodule update
+```
+
+<!-- # if "git submodule update" doesn't work try:
+git submodule update --force --recursive --init --remote
+
+# if that still doesn't work cd into the problem submodule folder and revert local changes through git
+# submodule folders are src/catkin_simple, src/rpg_dvs_ros and src/vision_opencv
+git restore --staged *
+git restore *
+``` -->
+4. Create enviroment
+```
+conda env create -f environment.yml -n qcreventdemoenv
+```
+There is also a environment_versioned.yml which includes versions of all packages but I can't get a new envirment out of it so it's lucky that it doesn't seem to be necessary.
+
+5. Build 
+```
+catkin build
+# or
+source init.bash
+# init.bash builds then sources project
 ```
 ## Usage
 ### Launch Files
