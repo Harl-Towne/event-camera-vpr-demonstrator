@@ -3,4 +3,4 @@
 	url = https://github.com/catkin/catkin_simple.git
 [submodule "src/rpg_dvs_ros"]
 	path = src/rpg_dvs_ros
-	url = https://github.com/uzh-rpg/rpg_dvs_ros.git
+	url = https://github.com/Harl-Towne/rpg_dvs_ros.git
