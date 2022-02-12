@@ -532,7 +532,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             # convert frrame to pixmap
             # don't ask about the self.image_width*3. I don't know what it does but it's important
             event_image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
-            event_pixmap = QtGui.QPixmap(event_image)
+            event_image_copy = event_image.copy() # copy is needed to fix segmentation faults
+            event_pixmap = QtGui.QPixmap(event_image_copy)
 
             # calculate appropriate width for images
             # the -15 leave a border. this needs to be >0 otherwise the window will uncontrolably expand.
@@ -547,7 +548,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 # display camera frame if it exists
                 if camera_frame is not None:
                     camera_image = QtGui.QImage(camera_frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
-                    camera_pixmap = QtGui.QPixmap(camera_image)
+                    camera_image_copy = camera_image.copy() # copy is needed to fix segmentation faults
+                    camera_pixmap = QtGui.QPixmap(camera_image_copy)
                     camera_pixmap = camera_pixmap.scaled((int)(scaled_width),self.frameDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
                     self.frameDisplay.setPixmap(camera_pixmap) # display event_pixmap
                 self.frameDisplay.setMinimumWidth((int)(scaled_width))
