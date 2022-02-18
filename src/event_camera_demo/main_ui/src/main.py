@@ -12,7 +12,10 @@ from pprint import pprint
 from sensor_msgs.msg import Image
 from datetime import datetime
 from pyqtgraph import opengl as gl
-
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
+import threading
 # from eventstore import EventStore
 bridge = CvBridge()
 
@@ -45,6 +48,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.image_height = None
         self.recorded_event_data = EventStore()
         self.live_event_data = EventStore()
+        self.last_event_packet = None
         self.user_integration_interval = None
         self.last_playback_indices = [0, 20000]
         self.last_live_duration = 100000
@@ -53,6 +57,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.frame_exclusion = False
         self.process_start_time = None
         self.last_receive_timestamp = None
+        self.main_thread = threading.get_ident()
 
         # load ui
         uic.loadUi(os.path.join(os.path.dirname(os.path.realpath(__file__)), "video_demo.ui"), self)
@@ -72,17 +77,19 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.integrationBox.valueChanged.connect(self.integrationUpdate_box)
         self.integrationCheck.stateChanged.connect(self.integrationUpdate_check)
 
-        # 3d stuff
-        self.voxelDisplay.setCameraPosition(distance=50)
+        # mpl
+        self.figure = plt.figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.eventPlotTab.layout().addWidget(self.canvas)
 
-        g = gl.GLGridItem()
-        self.voxelDisplay.addItem(g)
-        
-        dat = np.zeros((1, 3))
-        self.voxel_positive = gl.GLScatterPlotItem(pos=dat, color=(0,0,1,1), size=0.1, pxMode=False)
-        self.voxel_negative = gl.GLScatterPlotItem(pos=dat, color=(1,0,0,1), size=0.1, pxMode=False)
-        self.voxelDisplay.addItem(self.voxel_positive)
-        self.voxelDisplay.addItem(self.voxel_negative)
+        self.axes = self.figure.add_subplot(111, projection='3d')
+
+        zero = np.zeros(1)
+        self.eventPlotP, = self.axes.plot(zero, zero, zero, linestyle="", marker=".", color='blue')
+        self.eventPlotN, = self.axes.plot(zero, zero, zero, linestyle="", marker=".", color='red')
+
+        self.axes.invert_zaxis()
+        self.axes.invert_zaxis()
 
         # display refresh timer
         self.updateTimer = QtCore.QTimer()
@@ -287,16 +294,14 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
         # this if statement triggers once for the first event packet and signals to rest of the class to start generating frames
         # also saves event_image width and height (which should never change)
-        if self.last_frame_end == None:
-        #     self.last_frame_end = events[-1]['timestamp']
-            self.image_width = data.width
-            self.image_height = data.height
+        self.image_width = data.width
+        self.image_height = data.height
 
         self.last_receive_timestamp = events[-1]['timestamp']
         # if live data is currently being displayed then save that too
         if self.state == states.live or  self.state == states.record:
             if self.user_integration_interval is None:
-                self.display_new_frame(events)
+                self.last_event_packet = events
             else:
                 self.live_event_data.append(events)
 
@@ -351,6 +356,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         
         # if the user has not set their own integration interval then this function is not needed (but is still run on a timer)
         if self.user_integration_interval is None:
+            self.display_new_frame(self.last_event_packet)
             return
 
         # abort if no data
@@ -457,42 +463,41 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
     # display the given event data as a frame
     def display_new_frame(self, event_data):
+        if not threading.get_ident() == self.main_thread:
+            print("'display_new_frame' function called from wrong thread.")
+            return
+
         if self.process_start_time is None:
             self.process_start_time = datetime.now()
-
+    
         x = event_data['x']
         y = event_data['y']
         p = event_data['polarity']
 
-        if self.tabWidget.currentIndex() == 1:
+        if self.tabWidget.currentIndex() == 1 or self.tabWidget.currentIndex() == 2:
 
             # remove offset from timestamps
             ts = (event_data['timestamp'] - event_data['timestamp'][-1])
 
             # filter x/y/ts by polarity
             bool_p = np.array(p.copy(), dtype=bool)
-            xp = x[bool_p]
-            xn = x[np.invert(bool_p)]
+            xp = x[bool_p] 
+            xn = x[np.invert(bool_p)] 
             yp = y[bool_p]
             yn = y[np.invert(bool_p)]
             tp = ts[bool_p]
             tn = ts[np.invert(bool_p)]
 
-            # scale x/y/ts to more reasonable values
-            yp = (self.image_height - yp) * 0.1
-            yn = (self.image_height - yn) * 0.1
+            self.eventPlotP.set_data(xp, tp)
+            self.eventPlotP.set_3d_properties(yp)
 
-            xp = (xp - self.image_width/2) * -0.1
-            xn = (xn - self.image_width/2) * -0.1
+            self.eventPlotN.set_data(xn, tn)
+            self.eventPlotN.set_3d_properties(yn)
+            self.figure.canvas.draw()
 
-            tp = tp * 500
-            tn = tn * 500
-
-            # display x/y/ts
-            pos = np.array([xp, tp, yp]).transpose()
-            neg = np.array([xn, tn, yn]).transpose()
-            self.voxel_positive.setData(pos=pos)
-            self.voxel_negative.setData(pos=neg)
+            self.axes.set_xlim3d(np.min(x), np.max(x))
+            self.axes.set_ylim3d(np.min(ts), np.max(ts))
+            self.axes.set_zlim3d(np.min(y), np.max(y))
 
         else:
             
@@ -526,19 +531,26 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             # add events to image
             if not self.fastCheck.checkState() == 2:
                 # skip this for faster event display as it can take a long time in the case of many events
-                frame[y, x, :] = 0
+                try:
+                    frame[y, x, :] = 0
+                except:
+                    print("="*40)
+                    print(frame.shape)
+                    print(x.shape)
+                    print(y.shape)
+                    print(max(x), max(y))
             frame[y, x, p * 2] = 255
 
             # convert frrame to pixmap
             # don't ask about the self.image_width*3. I don't know what it does but it's important
-            event_image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
-            event_image_copy = event_image.copy() # copy is needed to fix segmentation faults
-            event_pixmap = QtGui.QPixmap(event_image_copy)
+            # event_image (along with a few other variables here) are clas variables to try and prevent segmentation faults
+            self.event_image = QtGui.QImage(frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # convert np event_image to qt event_image
+            event_pixmap = QtGui.QPixmap.fromImage(self.event_image)
 
             # calculate appropriate width for images
             # the -15 leave a border. this needs to be >0 otherwise the window will uncontrolably expand.
             # The expanding is because the frames width is often a couple of pixels wider/higher than the combined widths of all its children
-            width = self.displayFrame.width() - 15     
+            width = self.displayFrame.width() - 15
             height = self.displayFrame.height() - 15
             scaled_width = (int)(height * self.image_width / self.image_height)
 
@@ -547,11 +559,10 @@ class EventDemoWindow(QtWidgets.QMainWindow):
                 scaled_width = min((int)(width/2), scaled_width)
                 # display camera frame if it exists
                 if camera_frame is not None:
-                    camera_image = QtGui.QImage(camera_frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
-                    camera_image_copy = camera_image.copy() # copy is needed to fix segmentation faults
-                    camera_pixmap = QtGui.QPixmap(camera_image_copy)
-                    camera_pixmap = camera_pixmap.scaled((int)(scaled_width),self.frameDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
-                    self.frameDisplay.setPixmap(camera_pixmap) # display event_pixmap
+                    self.camera_image = QtGui.QImage(camera_frame.copy(), self.image_width, self.image_height, self.image_width*3, QtGui.QImage.Format_RGB888) # conver np event_image to qt event_image
+                    camera_pixmap = QtGui.QPixmap(self.camera_image)
+                    self.camera_pixmap_scaled = camera_pixmap.scaled((int)(scaled_width),self.frameDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+                    self.frameDisplay.setPixmap(self.camera_pixmap_scaled) # display event_pixmap
                 self.frameDisplay.setMinimumWidth((int)(scaled_width))
             else:
                 # set width of each display to full
@@ -563,8 +574,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
             # display the event frame
             self.eventDisplay.setMinimumWidth((int)(scaled_width))
-            event_pixmap = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
-            self.eventDisplay.setPixmap(event_pixmap) # display event_pixmap
+            self.event_pixmap_scaled = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
+            self.eventDisplay.setPixmap(self.event_pixmap_scaled) # display event_pixmap       
 
         performance = datetime.now()-self.process_start_time
         performance = performance.total_seconds()

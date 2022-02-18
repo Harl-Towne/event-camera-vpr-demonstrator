@@ -33,7 +33,7 @@
     <item>
      <widget class="QFrame" name="frame_6">
       <property name="frameShape">
-       <enum>QFrame::StyledPanel</enum>
+       <enum>QFrame::NoFrame</enum>
       </property>
       <property name="frameShadow">
        <enum>QFrame::Raised</enum>
@@ -57,7 +57,7 @@
        <item>
         <widget class="QFrame" name="frame_7">
          <property name="frameShape">
-          <enum>QFrame::StyledPanel</enum>
+          <enum>QFrame::NoFrame</enum>
          </property>
          <property name="frameShadow">
           <enum>QFrame::Raised</enum>
@@ -91,7 +91,7 @@
               </sizepolicy>
              </property>
              <attribute name="title">
-              <string>2D Event Playback</string>
+              <string>2D Event Display</string>
              </attribute>
              <layout class="QHBoxLayout" name="horizontalLayout_6">
               <property name="spacing">
@@ -118,7 +118,7 @@
                  </sizepolicy>
                 </property>
                 <property name="frameShape">
-                 <enum>QFrame::StyledPanel</enum>
+                 <enum>QFrame::NoFrame</enum>
                 </property>
                 <property name="frameShadow">
                  <enum>QFrame::Raised</enum>
@@ -236,28 +236,11 @@
               </item>
              </layout>
             </widget>
-            <widget class="QWidget" name="tab_2">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
+            <widget class="QWidget" name="eventPlotTab">
              <attribute name="title">
-              <string>Event Voxel Grid</string>
+              <string>3D Event Display</string>
              </attribute>
-             <layout class="QHBoxLayout" name="horizontalLayout_7">
-              <item>
-               <widget class="GLViewWidget" name="voxelDisplay">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-               </widget>
-              </item>
-             </layout>
+             <layout class="QHBoxLayout" name="horizontalLayout_8"/>
             </widget>
            </widget>
           </item>
@@ -289,7 +272,7 @@
           <item>
            <widget class="QFrame" name="frame_8">
             <property name="frameShape">
-             <enum>QFrame::StyledPanel</enum>
+             <enum>QFrame::NoFrame</enum>
             </property>
             <property name="frameShadow">
              <enum>QFrame::Raised</enum>
@@ -313,7 +296,7 @@
              <item>
               <widget class="QFrame" name="frame_9">
                <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+                <enum>QFrame::NoFrame</enum>
                </property>
                <property name="frameShadow">
                 <enum>QFrame::Raised</enum>
@@ -370,7 +353,7 @@
              <item>
               <widget class="QFrame" name="frame_10">
                <property name="frameShape">
-                <enum>QFrame::StyledPanel</enum>
+                <enum>QFrame::NoFrame</enum>
                </property>
                <property name="frameShadow">
                 <enum>QFrame::Raised</enum>
@@ -398,6 +381,9 @@
                     <horstretch>0</horstretch>
                     <verstretch>0</verstretch>
                    </sizepolicy>
+                  </property>
+                  <property name="lineWidth">
+                   <number>0</number>
                   </property>
                   <property name="text">
                    <string>Live Data</string>
@@ -427,11 +413,20 @@
         <verstretch>0</verstretch>
        </sizepolicy>
       </property>
+      <property name="styleSheet">
+       <string notr="true"/>
+      </property>
       <property name="frameShape">
-       <enum>QFrame::StyledPanel</enum>
+       <enum>QFrame::NoFrame</enum>
       </property>
       <property name="frameShadow">
        <enum>QFrame::Raised</enum>
+      </property>
+      <property name="lineWidth">
+       <number>0</number>
+      </property>
+      <property name="midLineWidth">
+       <number>0</number>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <property name="spacing">
@@ -452,23 +447,32 @@
        <item>
         <widget class="QFrame" name="frame_3">
          <property name="frameShape">
-          <enum>QFrame::StyledPanel</enum>
+          <enum>QFrame::NoFrame</enum>
          </property>
          <property name="frameShadow">
           <enum>QFrame::Raised</enum>
+         </property>
+         <property name="lineWidth">
+          <number>0</number>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout">
           <item>
            <widget class="QFrame" name="frame_2">
             <property name="frameShape">
-             <enum>QFrame::StyledPanel</enum>
+             <enum>QFrame::NoFrame</enum>
             </property>
             <property name="frameShadow">
              <enum>QFrame::Raised</enum>
             </property>
+            <property name="lineWidth">
+             <number>0</number>
+            </property>
             <layout class="QFormLayout" name="formLayout">
              <item row="0" column="0">
               <widget class="QLabel" name="label">
+               <property name="lineWidth">
+                <number>0</number>
+               </property>
                <property name="text">
                 <string>Playback Speed:</string>
                </property>
@@ -527,23 +531,35 @@
        <item>
         <widget class="QFrame" name="frame_4">
          <property name="frameShape">
-          <enum>QFrame::StyledPanel</enum>
+          <enum>QFrame::NoFrame</enum>
          </property>
          <property name="frameShadow">
           <enum>QFrame::Raised</enum>
+         </property>
+         <property name="lineWidth">
+          <number>0</number>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
            <widget class="QFrame" name="frame_5">
             <property name="frameShape">
-             <enum>QFrame::StyledPanel</enum>
+             <enum>QFrame::NoFrame</enum>
             </property>
             <property name="frameShadow">
              <enum>QFrame::Raised</enum>
             </property>
+            <property name="lineWidth">
+             <number>0</number>
+            </property>
             <layout class="QFormLayout" name="formLayout_2">
              <item row="0" column="0">
               <widget class="QLabel" name="label_2">
+               <property name="frameShadow">
+                <enum>QFrame::Plain</enum>
+               </property>
+               <property name="lineWidth">
+                <number>0</number>
+               </property>
                <property name="text">
                 <string>Integration Period:</string>
                </property>
@@ -643,10 +659,13 @@
           </sizepolicy>
          </property>
          <property name="frameShape">
-          <enum>QFrame::StyledPanel</enum>
+          <enum>QFrame::NoFrame</enum>
          </property>
          <property name="frameShadow">
           <enum>QFrame::Raised</enum>
+         </property>
+         <property name="lineWidth">
+          <number>0</number>
          </property>
          <layout class="QFormLayout" name="formLayout_3">
           <item row="0" column="0">
@@ -749,6 +768,9 @@
        </item>
        <item>
         <widget class="QLabel" name="speedLbl">
+         <property name="lineWidth">
+          <number>0</number>
+         </property>
          <property name="text">
           <string>Displaying at 100% of Real Time</string>
          </property>
@@ -763,13 +785,6 @@
    </layout>
   </widget>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>GLViewWidget</class>
-   <extends>QOpenGLWidget</extends>
-   <header>pyqtgraph.opengl</header>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>
