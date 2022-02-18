@@ -1,25 +1,13 @@
 # Event Camera Demo
 ## Install
-<!-- 1. Install Robostack - https://github.com/RoboStack/ros-noetic -->
-1. Install [`miniforge` / `mambaforge`](https://github.com/conda-forge/miniforge) or [`miniconda`](https://docs.conda.io/en/latest/miniconda.html) and restart terminal
+1. Install [`miniforge` / `mambaforge`](https://github.com/conda-forge/miniforge) or [`miniconda`](https://docs.conda.io/en/latest/miniconda.html) and enter base enviroment.
 
-2. Install Mamba
+3. Install Mamba.
 ```
 conda install mamba -c conda-forge
 ```
 
-<!-- 4. Install various dependancies (run in enviroment)
-```
-# needed for https://github.com/uzh-rpg/rpg_dvs_ros
-mamba install libcaer -c tobiasrobotics
-mamba install ros-noetic-camera-info-manager
-mamba install ros-noetic-image-view
-# c++ compile
-mamba install compilers make cmake libopencv boost-cpp
-# used to display 3D event plot 
-mamba install pyqtgraph
-``` -->
-3. Clone Repository
+3. Clone Repository.
 ```
 git clone https://github.com/Harl-Towne/event-camera-vpr-demonstrator.git
 cd event-camera-vpr-demonstrator
@@ -27,21 +15,13 @@ git submodule init
 git submodule update
 ```
 
-<!-- # if "git submodule update" doesn't work try:
-git submodule update --force --recursive --init --remote
-
-# if that still doesn't work cd into the problem submodule folder and revert local changes through git
-# submodule folders are src/catkin_simple, src/rpg_dvs_ros and src/vision_opencv
-git restore --staged *
-git restore *
-``` -->
-4. Create enviroment
+4. Create enviroment.
 ```
 conda env create -f environment.yml -n qcreventdemoenv
 ```
 There is also a environment_versioned.yml which includes versions of all packages but I can't get a new envirment out of it so it's lucky that it doesn't seem to be necessary.
 
-5. Build 
+5. Build.
 ```
 catkin build
 # or
@@ -73,24 +53,7 @@ rosrun filter filter.py		# with tonic filter (currently too slow for real time)
 ## node for the demo program itself
 rosrun main_ui main.py
 ```
-<!--
-## Troubleshooting
-### C++ compile errors
-Make sure `sysroot_linux-64` is version 2.17 (or above maybe).
-```
-# run in robostack enviroment
-conda list | grep sys
-```
-Should show:
-```
-sysroot_linux-64          2.17                h4a8ded7_13    conda-forg
-```
-If not run:
-```
-mamba uninstall sysroot_linux-64   # maybe not needed
-mamba install compilers sysroot_linux-64=2.17
-```
--->
+
 ## Documentation
 ### Node Structure
 
