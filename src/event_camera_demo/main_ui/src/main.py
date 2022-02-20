@@ -1,4 +1,3 @@
-from typing import final
 from PyQt5 import QtWidgets, uic, QtCore, QtGui
 import sys
 import os
@@ -8,14 +7,12 @@ import rospy
 from qcr_event_msgs.msg import EventPacket
 import numpy as np
 from enum import Enum
-from pprint import pprint
 from sensor_msgs.msg import Image
 from datetime import datetime
-from pyqtgraph import opengl as gl
-from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 import threading
+
 # from eventstore import EventStore
 bridge = CvBridge()
 
@@ -46,18 +43,17 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.last_frame_end=None # used to keep track of where the recodring is up to
         self.image_width = None  # width and height of camera display
         self.image_height = None
-        self.recorded_event_data = EventStore()
-        self.live_event_data = EventStore()
-        self.last_event_packet = None
-        self.user_integration_interval = None
-        self.last_playback_indices = [0, 20000]
-        self.last_live_duration = 100000
-        self.live_camera_data = None
-        self.recorded_camera_data = {"frames":[], "timestamps":[]}
-        self.frame_exclusion = False
-        self.process_start_time = None
-        self.last_receive_timestamp = None
-        self.main_thread = threading.get_ident()
+        self.recorded_event_data = EventStore() # for recording and playing back data
+        self.live_event_data = EventStore()     # for displaying live data with different integration intervals
+        self.last_event_packet = None           # for displaying live data quickly with no set integration interval 
+        self.user_integration_interval = None   # none is auto interval
+        self.last_playback_indices = [0, 20000] # for faster searching for events to display
+        self.last_live_duration = 100000        # ditto
+        self.live_camera_data = None            # last camera frame (as in regular rgb camera)
+        self.recorded_camera_data = {"frames":[], "timestamps":[]} # recorded camera frames
+        self.last_receive_timestamp = None      # used to keep camera data in sync with events
+        self.process_start_time = None          # used for preformance metric
+        self.main_thread = threading.get_ident()# used to prevent segmentation faults in display_new_frame()
 
         # load ui
         uic.loadUi(os.path.join(os.path.dirname(os.path.realpath(__file__)), "video_demo.ui"), self)
@@ -77,20 +73,21 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.integrationBox.valueChanged.connect(self.integrationUpdate_box)
         self.integrationCheck.stateChanged.connect(self.integrationUpdate_check)
 
-        # mpl
+        # 3d plot stuff
         self.figure = plt.figure()
         self.canvas = FigureCanvas(self.figure)
         self.eventPlotTab.layout().addWidget(self.canvas)
 
         self.axes = self.figure.add_subplot(111, projection='3d')
 
+        self.axes.set_xlabel("x Pixel Location")
+        self.axes.set_ylabel("Seconds Before Present")
+        self.axes.set_zlabel("y Pixel Location")
+
         zero = np.zeros(1)
         self.eventPlotP, = self.axes.plot(zero, zero, zero, linestyle="", marker=".", color='blue')
         self.eventPlotN, = self.axes.plot(zero, zero, zero, linestyle="", marker=".", color='red')
-
-        self.axes.invert_zaxis()
-        self.axes.invert_zaxis()
-
+        
         # display refresh timer
         self.updateTimer = QtCore.QTimer()
         self.updateTimer.timeout.connect(self.display_new_playback_frame)
@@ -463,10 +460,16 @@ class EventDemoWindow(QtWidgets.QMainWindow):
 
     # display the given event data as a frame
     def display_new_frame(self, event_data):
+        # prevents a nonetype error
+        if event_data is None:
+            return
+
+        # prevents segmentation faults due to qt being accessed from other threads
         if not threading.get_ident() == self.main_thread:
             print("'display_new_frame' function called from wrong thread.")
             return
 
+        # for timing the process
         if self.process_start_time is None:
             self.process_start_time = datetime.now()
     
@@ -479,6 +482,9 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             # remove offset from timestamps
             ts = (event_data['timestamp'] - event_data['timestamp'][-1])
 
+            # flip time axis so that the past is positive time
+            ts = ts * -1
+
             # filter x/y/ts by polarity
             bool_p = np.array(p.copy(), dtype=bool)
             xp = x[bool_p] 
@@ -488,16 +494,23 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             tp = ts[bool_p]
             tn = ts[np.invert(bool_p)]
 
+            # plot data            
             self.eventPlotP.set_data(xp, tp)
             self.eventPlotP.set_3d_properties(yp)
 
             self.eventPlotN.set_data(xn, tn)
             self.eventPlotN.set_3d_properties(yn)
-            self.figure.canvas.draw()
 
+            # set plot limits
             self.axes.set_xlim3d(np.min(x), np.max(x))
             self.axes.set_ylim3d(np.min(ts), np.max(ts))
             self.axes.set_zlim3d(np.min(y), np.max(y))
+
+            # flip the plot verticaly as pixel coordinates are measured downwards as positive
+            # the plot doesn't need to be fliped horizontaly because the time axis was already flipped
+            self.axes.invert_zaxis()    
+
+            self.figure.canvas.draw()
 
         else:
             
@@ -577,6 +590,7 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             self.event_pixmap_scaled = event_pixmap.scaled(scaled_width,self.eventDisplay.height(), QtCore.Qt.KeepAspectRatio) # scale event_pixmap
             self.eventDisplay.setPixmap(self.event_pixmap_scaled) # display event_pixmap       
 
+        # display timing for drawing process
         performance = datetime.now()-self.process_start_time
         performance = performance.total_seconds()
         performance = (1/self.fps) / performance * 100
