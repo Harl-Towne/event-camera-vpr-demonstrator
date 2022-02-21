@@ -85,8 +85,8 @@ class EventDemoWindow(QtWidgets.QMainWindow):
         self.axes.set_zlabel("y Pixel Location")
 
         zero = np.zeros(1)
-        self.eventPlotP, = self.axes.plot(zero, zero, zero, linestyle="", marker=".", color='blue')
-        self.eventPlotN, = self.axes.plot(zero, zero, zero, linestyle="", marker=".", color='red')
+        self.eventPlotP, = self.axes.plot(zero, zero, zero, linestyle="", marker=".", color='blue', markersize=1)
+        self.eventPlotN, = self.axes.plot(zero, zero, zero, linestyle="", marker=".", color='red', markersize=1)
         
         # display refresh timer
         self.updateTimer = QtCore.QTimer()
