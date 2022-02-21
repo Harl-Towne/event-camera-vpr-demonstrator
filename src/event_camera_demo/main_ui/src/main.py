@@ -510,6 +510,13 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             # the plot doesn't need to be fliped horizontaly because the time axis was already flipped
             self.axes.invert_zaxis()    
 
+            if self.fastCheck.checkState() == 2:
+                self.eventPlotN.set_markevery(5)
+                self.eventPlotP.set_markevery(5)
+            else:
+                self.eventPlotN.set_markevery(1)
+                self.eventPlotP.set_markevery(1)
+
             self.figure.canvas.draw()
 
         else:
