@@ -510,12 +510,18 @@ class EventDemoWindow(QtWidgets.QMainWindow):
             # the plot doesn't need to be fliped horizontaly because the time axis was already flipped
             self.axes.invert_zaxis()    
 
+            # decimate points for faster drawing (i think)
             if self.fastCheck.checkState() == 2:
                 self.eventPlotN.set_markevery(5)
                 self.eventPlotP.set_markevery(5)
             else:
                 self.eventPlotN.set_markevery(1)
                 self.eventPlotP.set_markevery(1)
+
+            # set point size
+            print(self.pointSizeBox.value())
+            self.eventPlotN.set_markersize(self.pointSizeBox.value())
+            self.eventPlotP.set_markersize(self.pointSizeBox.value())
 
             self.figure.canvas.draw()
 
